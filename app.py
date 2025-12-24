@@ -40,15 +40,18 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. KONFIGURASI EMAIL & LOGIKA ---
+# --- 2. KONFIGURASI EMAIL & LOGIKA (Membaca dari Secrets) ---
 SENDER_EMAIL = "achmad.setiawan@kawanlamacorp.com"
-APP_PASSWORD = "tngsqdnifgxkvabe" 
-BASE_URL = "https://kasbon-digital-fajar.streamlit.app" 
+# Mengambil password dari Secrets Streamlit
+APP_PASSWORD = st.secrets["APP_PASSWORD"] 
+BASE_URL = "https://digital-kasbon-ahi.streamlit.app" 
 SPREADSHEET_ID = "1TGsCKhBC0E0hup6RGVbGrpB6ds5Jdrp5tNlfrBORzaI"
 
 def get_creds():
+    # PERBAIKAN: Membaca dari dictionary secrets, bukan file fisik
+    creds_dict = st.secrets["gcp_service_account"]
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    return ServiceAccountCredentials.from_json_keyfile_name("service_account.json", scope)
+    return ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 
 def send_email_with_attachment(to_email, subject, message_body, attachment_file=None):
     try:
@@ -95,11 +98,10 @@ if 'show_errors' not in st.session_state: st.session_state.show_errors = False
 query_id = st.query_params.get("id")
 if query_id:
     st.markdown('<span class="store-header">Portal Approval Manager</span>', unsafe_allow_html=True)
-    creds = get_creds()
-    client = gspread.authorize(creds)
-    # Membuka sheet transaksi (REVISI NAMA SHEET)
-    sheet = client.open_by_key(SPREADSHEET_ID).worksheet("DATA_KASBON_AZKO")
     try:
+        creds = get_creds()
+        client = gspread.authorize(creds)
+        sheet = client.open_by_key(SPREADSHEET_ID).worksheet("DATA_KASBON_AZKO")
         cell = sheet.find(query_id)
         row_data = sheet.row_values(cell.row)
         st.info(f"**No Pengajuan:** {query_id}")
@@ -149,20 +151,17 @@ else:
         kode_toko = st.text_input("Masukkan Kode Toko", placeholder="Contoh: A644").upper()
 
         if kode_toko != "":
-            # --- LOGIKA AMBIL DATA DARI DATABASE_USER (DIPERBAIKI) ---
             try:
                 creds = get_creds()
                 client = gspread.authorize(creds)
                 db_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("DATABASE_USER")
                 user_records = db_sheet.get_all_records()
                 
-                # Filter Manager & Cashier berdasarkan Kode Toko
                 managers_db = [f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})" 
                                for u in user_records if str(u['Kode_Toko']) == kode_toko and u['Role'] == 'Manager']
                 cashiers_db = [f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})" 
                                for u in user_records if str(u['Kode_Toko']) == kode_toko and u['Role'] == 'Senior Cashier']
                 
-                # Dictionary untuk mapping email
                 manager_email_map = {f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})": u['Email'] 
                                      for u in user_records if str(u['Kode_Toko']) == kode_toko and u['Role'] == 'Manager'}
                 
@@ -174,7 +173,6 @@ else:
                 st.stop()
 
             tgl_obj = datetime.datetime.now()
-            # Header Toko Dinamis (Opsional: Kamu bisa buat tabel Nama Toko di DB juga nanti)
             st.markdown(f'<span class="store-header">Unit Bisnis Store: {kode_toko}</span>', unsafe_allow_html=True)
             
             st.markdown('<div class="label-container"><span class="label-text">Email Request</span></div>', unsafe_allow_html=True)
@@ -209,7 +207,6 @@ else:
             st.markdown('<div class="label-container"><span class="label-text">Janji Penyelesaian</span></div>', unsafe_allow_html=True)
             janji_tgl = st.date_input("", min_value=datetime.date.today(), key="janji_val")
             
-            # --- SELECTBOX DINAMIS DARI DATABASE_USER ---
             err_sc = '<span class="error-tag">Harap dipilih</span>' if st.session_state.show_errors and st.session_state.get('sc_val') == "-" else ''
             st.markdown(f'<div class="label-container"><span class="label-text">Senior Cashier Incharge</span>{err_sc}</div>', unsafe_allow_html=True)
             senior_cashier = st.selectbox("", ["-"] + cashiers_db, key="sc_val")
@@ -231,7 +228,6 @@ else:
                         with st.spinner("Processing..."):
                             creds = get_creds()
                             client = gspread.authorize(creds)
-                            # Membuka sheet transaksi (REVISI NAMA SHEET)
                             sheet = client.open_by_key(SPREADSHEET_ID).worksheet("DATA_KASBON_AZKO")
                             
                             tgl_str = tgl_obj.strftime("%d%m%y")
@@ -258,7 +254,6 @@ else:
                             ]
                             sheet.append_row(data_final)
 
-                            # --- LOGIKA EMAIL CUSTOM ---
                             app_link = f"{BASE_URL}?id={no_pengajuan}"
                             mgr_name_clean = mgr_name_full.split(" - ")[1].split(" (")[0]
                             link_html = "Lihat Lampiran di bawah" if bukti_file else "-"
@@ -284,7 +279,6 @@ else:
                             </body>
                             </html>
                             """
-                            # Kirim ke email manager sesuai DB (MAP DINAMIS)
                             target_email = manager_email_map[mgr_name_full]
                             send_email_with_attachment(target_email, subject_email, email_body, bukti_file)
                         
