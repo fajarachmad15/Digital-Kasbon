@@ -40,15 +40,16 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. KONFIGURASI EMAIL & LOGIKA (Membaca dari Secrets) ---
+# --- 2. KONFIGURASI ---
 SENDER_EMAIL = "achmad.setiawan@kawanlamacorp.com"
-# Mengambil password dari Secrets Streamlit
 APP_PASSWORD = st.secrets["APP_PASSWORD"] 
 BASE_URL = "https://digital-kasbon-ahi.streamlit.app" 
 SPREADSHEET_ID = "1TGsCKhBC0E0hup6RGVbGrpB6ds5Jdrp5tNlfrBORzaI"
 
+# SETTING ZONA WAKTU WIB (GMT+7)
+WIB = datetime.timezone(datetime.timedelta(hours=7))
+
 def get_creds():
-    # PERBAIKAN: Membaca dari dictionary secrets, bukan file fisik
     creds_dict = st.secrets["gcp_service_account"]
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     return ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
@@ -172,7 +173,8 @@ else:
                 st.error(f"Gagal memuat database user: {e}")
                 st.stop()
 
-            tgl_obj = datetime.datetime.now()
+            # MENGGUNAKAN WAKTU WIB
+            tgl_obj = datetime.datetime.now(WIB)
             st.markdown(f'<span class="store-header">Unit Bisnis Store: {kode_toko}</span>', unsafe_allow_html=True)
             
             st.markdown('<div class="label-container"><span class="label-text">Email Request</span></div>', unsafe_allow_html=True)
@@ -248,7 +250,8 @@ else:
                             janji_str = janji_tgl.strftime("%d/%m/%Y")
                             
                             data_final = [
-                                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), no_pengajuan, kode_toko, email_req,
+                                datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S"), # TIMESTAMP WIB
+                                no_pengajuan, kode_toko, email_req,
                                 nama_penerima, nip, dept, nominal_raw, final_terbilang, keperluan,
                                 link_database, janji_str, senior_cashier, mgr_name_full, "Pending"
                             ]
