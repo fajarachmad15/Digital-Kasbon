@@ -157,6 +157,15 @@ else:
                 db_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("DATABASE_USER")
                 user_records = db_sheet.get_all_records()
                 
+                # --- PERBAIKAN LOGIKA: AMBIL NAMA STORE ---
+                store_info = next((u for u in user_records if str(u['Kode_Toko']) == kode_toko), None)
+                
+                if not store_info:
+                    st.error("⚠️ Kode store tidak ada atau belum terdaftar")
+                    st.stop()
+                
+                nama_store_display = store_info.get('Nama_Store', kode_toko)
+
                 managers_db = [f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})" 
                                for u in user_records if str(u['Kode_Toko']) == kode_toko and u['Role'] == 'Manager']
                 cashiers_db = [f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})" 
@@ -166,15 +175,21 @@ else:
                                      for u in user_records if str(u['Kode_Toko']) == kode_toko and u['Role'] == 'Manager'}
                 
                 if not managers_db or not cashiers_db:
-                    st.error(f"⚠️ Data Manager/Cashier untuk toko {kode_toko} tidak ditemukan di DATABASE_USER.")
+                    st.error(f"⚠️ Data Manager/Cashier untuk {nama_store_display} tidak lengkap di DATABASE_USER.")
                     st.stop()
             except Exception as e:
-                st.error(f"Gagal memuat database user: {e}")
+                # Pesan error jika kolom Kode_Toko tidak ditemukan sama sekali di sheet
+                if "Kode_Toko" in str(e):
+                    st.error("⚠️ Kode store tidak ada atau belum terdaftar")
+                else:
+                    st.error(f"Error Database: {e}")
                 st.stop()
 
             # MENGGUNAKAN WAKTU WIB
             tgl_obj = datetime.datetime.now(WIB)
-            st.markdown(f'<span class="store-header">Unit Bisnis Store: {kode_toko}</span>', unsafe_allow_html=True)
+            
+            # --- TAMPILAN HEADER DENGAN NAMA STORE ---
+            st.markdown(f'<span class="store-header">Unit Bisnis Store: {nama_store_display}</span>', unsafe_allow_html=True)
             
             st.markdown('<div class="label-container"><span class="label-text">Email Request</span></div>', unsafe_allow_html=True)
             email_req = st.text_input("", value=SENDER_EMAIL, disabled=True)
