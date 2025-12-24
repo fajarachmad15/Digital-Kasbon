@@ -133,9 +133,8 @@ else:
         with col_res1:
             st.write(f"**1. No. Pengajuan:** {d['no_pengajuan']}")
             st.write(f"**2. Kode Store:** {d['kode_toko']}")
-            st.write(f"**3. Dibayarkan Kepada:** {d['nama']}")
-            st.write(f"**4. NIP:** {d['nip']}")
-            st.write(f"**5. Departemen:** {d['dept']}")
+            st.write(f"**3. Dibayarkan Kepada:** {d['nama']} / {d['nip']}")
+            st.write(f"**4. Departemen:** {d['dept']}")
         with col_res2:
             st.write(f"**6. Nominal:** Rp {int(d['nominal']):,}")
             st.write(f"**7. Terbilang:** {d['terbilang']}")
@@ -270,7 +269,7 @@ else:
                                 <table style='border-collapse: collapse; width: 100%;'>
                                     <tr><td style='width: 200px;'><b>Nomor Pengajuan Kasbon</b></td><td>: {no_pengajuan}</td></tr>
                                     <tr><td><b>Tgl dan Jam Pengajuan</b></td><td>: {tgl_full}</td></tr>
-                                    <tr><td><b>Dibayarkan Kepada</b></td><td>: {nama_penerima}</td></tr>
+                                    <tr><td><b>Dibayarkan Kepada</b></td><td>: {nama_penerima} / {nip}</td></tr>
                                     <tr><td><b>Departement</b></td><td>: {dept}</td></tr>
                                     <tr><td><b>Senilai</b></td><td>: Rp {int(nominal_raw):,} ({final_terbilang})</td></tr>
                                     <tr><td><b>Untuk Keperluan</b></td><td>: {keperluan}</td></tr>
