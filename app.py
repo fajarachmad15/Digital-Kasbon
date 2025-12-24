@@ -13,7 +13,8 @@ from googleapiclient.http import MediaIoBaseUpload
 from oauth2client.service_account import ServiceAccountCredentials
 
 # --- 1. SETTING HALAMAN & CSS ---
-st.set_page_config(page_title="Kasbon Digital KLIP", layout="centered")
+# PERBAIKAN IMAGE 707f4f: Nama aplikasi diganti
+st.set_page_config(page_title="Kasbon Digital Petty Cash", layout="centered")
 
 st.markdown("""
     <style>
@@ -37,6 +38,23 @@ st.markdown("""
         margin-bottom: 1rem;
         display: block;
     }
+
+    /* PERBAIKAN IMAGE 707050: Styling Tombol Transparan & Simbol Putih */
+    .stButton > button {
+        border-radius: 8px;
+        font-weight: 600;
+        color: white !important;
+    }
+    /* Tombol Approve (Indeks Pertama di kolom) */
+    div.stColumn:nth-of-type(1) [data-testid="stButton"] button {
+        background-color: rgba(40, 167, 69, 0.3) !important;
+        border: 1px solid rgba(40, 167, 69, 0.5) !important;
+    }
+    /* Tombol Reject (Indeks Kedua di kolom) */
+    div.stColumn:nth-of-type(2) [data-testid="stButton"] button {
+        background-color: rgba(220, 53, 69, 0.3) !important;
+        border: 1px solid rgba(220, 53, 69, 0.5) !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -46,7 +64,6 @@ APP_PASSWORD = st.secrets["APP_PASSWORD"]
 BASE_URL = "https://digital-kasbon-ahi.streamlit.app" 
 SPREADSHEET_ID = "1TGsCKhBC0E0hup6RGVbGrpB6ds5Jdrp5tNlfrBORzaI"
 
-# SETTING ZONA WAKTU WIB (GMT+7)
 WIB = datetime.timezone(datetime.timedelta(hours=7))
 
 def get_creds():
@@ -98,6 +115,7 @@ if 'show_errors' not in st.session_state: st.session_state.show_errors = False
 # --- 4. TAMPILAN APPROVAL MANAGER ---
 query_id = st.query_params.get("id")
 if query_id:
+    # PERBAIKAN IMAGE 707f4f: Nama Header
     st.markdown('<span class="store-header">Portal Approval Manager</span>', unsafe_allow_html=True)
     try:
         creds = get_creds()
@@ -106,7 +124,6 @@ if query_id:
         cell = sheet.find(query_id)
         row_data = sheet.row_values(cell.row)
         
-        # MENAMPILKAN DATA PERSIS SEPERTI EMAIL
         st.info(f"### Rincian Pengajuan: {query_id}")
         
         col_app1, col_app2 = st.columns(2)
@@ -124,18 +141,21 @@ if query_id:
         
         if row_data[14] == "Pending":
             c1, c2 = st.columns(2)
-            if c1.button("✅ APPROVE", use_container_width=True, type="primary"):
+            # PERBAIKAN IMAGE 707050: Simbol checklist dan silang putih (✓ dan ✕)
+            if c1.button("✓ APPROVE", use_container_width=True):
                 sheet.update_cell(cell.row, 15, "APPROVED")
                 st.success("Berhasil di-Approve!"); st.balloons()
                 st.rerun()
-            if c2.button("❌ REJECT", use_container_width=True):
+            if c2.button("✕ REJECT", use_container_width=True):
                 sheet.update_cell(cell.row, 15, "REJECTED")
                 st.error("Pengajuan telah di-Reject.")
                 st.rerun()
         else:
+            # IMAGE 707be9: Sudah bagus, tidak diubah
             st.warning(f"Pengajuan ini sudah diproses dengan status: {row_data[14]}")
     except: 
-        st.error("Data Kasbon tidak ditemukan atau ID salah.")
+        # PERBAIKAN IMAGE 70d18a: Menghapus notifikasi error "Data Kasbon tidak ditemukan"
+        pass
 
 # --- 5. TAMPILAN INPUT USER ---
 else:
@@ -200,6 +220,7 @@ else:
                 st.stop()
 
             tgl_obj = datetime.datetime.now(WIB)
+            # PERBAIKAN IMAGE 707f4f: Header Petty Cash
             st.markdown(f'<span class="store-header">Unit Bisnis Store: {nama_store_display}</span>', unsafe_allow_html=True)
             
             st.markdown('<div class="label-container"><span class="label-text">Email Request</span></div>', unsafe_allow_html=True)
@@ -275,7 +296,7 @@ else:
                             janji_str = janji_tgl.strftime("%d/%m/%Y")
                             
                             data_final = [
-                                datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S"), # TIMESTAMP WIB
+                                datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S"), 
                                 no_pengajuan, kode_store, email_req,
                                 nama_penerima, nip, dept, nominal_raw, final_terbilang, keperluan,
                                 link_database, janji_str, senior_cashier, mgr_name_full, "Pending"
