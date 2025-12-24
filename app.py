@@ -132,7 +132,7 @@ else:
         col_res1, col_res2 = st.columns(2)
         with col_res1:
             st.write(f"**1. No. Pengajuan:** {d['no_pengajuan']}")
-            st.write(f"**2. Kode Store:** {d['kode_toko']}")
+            st.write(f"**2. Kode Store:** {d['kode_store']}")
             st.write(f"**3. Dibayarkan Kepada:** {d['nama']} / {d['nip']}")
             st.write(f"**4. Departemen:** {d['dept']}")
         with col_res2:
@@ -148,47 +148,47 @@ else:
 
     else:
         st.subheader("📍 Identifikasi Lokasi")
-        kode_toko = st.text_input("Masukkan Kode Toko", placeholder="Contoh: A644").upper()
+        kode_store = st.text_input("Masukkan Kode Store", placeholder="Contoh: A644").upper()
 
-        if kode_toko != "":
+        if kode_store != "":
             try:
                 creds = get_creds()
                 client = gspread.authorize(creds)
                 db_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("DATABASE_USER")
                 user_records = db_sheet.get_all_records()
                 
-                # --- PERBAIKAN LOGIKA: AMBIL NAMA STORE ---
-                store_info = next((u for u in user_records if str(u['Kode_Toko']) == kode_toko), None)
+                # --- LOGIKA AMBIL NAMA STORE DARI HEADER 'Kode_Store' ---
+                store_info = next((u for u in user_records if str(u['Kode_Store']) == kode_store), None)
                 
                 if not store_info:
                     st.error("⚠️ Kode store tidak ada atau belum terdaftar")
                     st.stop()
                 
-                nama_store_display = store_info.get('Nama_Store', kode_toko)
+                nama_store_display = store_info.get('Nama_Store', kode_store)
 
                 managers_db = [f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})" 
-                               for u in user_records if str(u['Kode_Toko']) == kode_toko and u['Role'] == 'Manager']
+                               for u in user_records if str(u['Kode_Store']) == kode_store and u['Role'] == 'Manager']
                 cashiers_db = [f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})" 
-                               for u in user_records if str(u['Kode_Toko']) == kode_toko and u['Role'] == 'Senior Cashier']
+                               for u in user_records if str(u['Kode_Store']) == kode_store and u['Role'] == 'Senior Cashier']
                 
                 manager_email_map = {f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})": u['Email'] 
-                                     for u in user_records if str(u['Kode_Toko']) == kode_toko and u['Role'] == 'Manager'}
+                                     for u in user_records if str(u['Kode_Store']) == kode_store and u['Role'] == 'Manager'}
                 
                 if not managers_db or not cashiers_db:
                     st.error(f"⚠️ Data Manager/Cashier untuk {nama_store_display} tidak lengkap di DATABASE_USER.")
                     st.stop()
             except Exception as e:
-                # Pesan error jika kolom Kode_Toko tidak ditemukan sama sekali di sheet
-                if "Kode_Toko" in str(e):
+                # Pesan error jika kolom Kode_Store tidak ditemukan atau kode salah
+                if "Kode_Store" in str(e) or "KeyError" in str(type(e).__name__):
                     st.error("⚠️ Kode store tidak ada atau belum terdaftar")
                 else:
-                    st.error(f"Error Database: {e}")
+                    st.error(f"Gagal memuat database user: {e}")
                 st.stop()
 
             # MENGGUNAKAN WAKTU WIB
             tgl_obj = datetime.datetime.now(WIB)
             
-            # --- TAMPILAN HEADER DENGAN NAMA STORE ---
+            # --- HEADER DENGAN NAMA STORE DARI DATABASE ---
             st.markdown(f'<span class="store-header">Unit Bisnis Store: {nama_store_display}</span>', unsafe_allow_html=True)
             
             st.markdown('<div class="label-container"><span class="label-text">Email Request</span></div>', unsafe_allow_html=True)
@@ -248,7 +248,7 @@ else:
                             
                             tgl_str = tgl_obj.strftime("%d%m%y")
                             all_records = sheet.get_all_values()
-                            prefix = f"KB{kode_toko}-{tgl_str}-"
+                            prefix = f"KB{kode_store}-{tgl_str}-"
                             last_num = 0
                             for row in all_records:
                                 if len(row) > 1 and row[1].startswith(prefix):
@@ -265,7 +265,7 @@ else:
                             
                             data_final = [
                                 datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S"), # TIMESTAMP WIB
-                                no_pengajuan, kode_toko, email_req,
+                                no_pengajuan, kode_store, email_req,
                                 nama_penerima, nip, dept, nominal_raw, final_terbilang, keperluan,
                                 link_database, janji_str, senior_cashier, mgr_name_full, "Pending"
                             ]
@@ -300,7 +300,7 @@ else:
                             send_email_with_attachment(target_email, subject_email, email_body, bukti_file)
                         
                         st.session_state.data_ringkasan = {
-                            'no_pengajuan': no_pengajuan, 'kode_toko': kode_toko, 'nama': nama_penerima, 'nip': nip,
+                            'no_pengajuan': no_pengajuan, 'kode_store': kode_store, 'nama': nama_penerima, 'nip': nip,
                             'dept': dept, 'nominal': nominal_raw, 'terbilang': final_terbilang, 
                             'keperluan': keperluan, 'janji': janji_str, 'manager': mgr_name_clean
                         }
