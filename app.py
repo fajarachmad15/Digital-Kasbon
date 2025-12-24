@@ -105,21 +105,37 @@ if query_id:
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet("DATA_KASBON_AZKO")
         cell = sheet.find(query_id)
         row_data = sheet.row_values(cell.row)
-        st.info(f"**No Pengajuan:** {query_id}")
-        st.write(f"Nama: {row_data[4]} | Nominal: Rp {int(row_data[7]):,}")
-        st.write(f"Status Saat Ini: **{row_data[14]}**")
+        
+        # MENAMPILKAN DATA PERSIS SEPERTI EMAIL
+        st.info(f"### Rincian Pengajuan: {query_id}")
+        
+        col_app1, col_app2 = st.columns(2)
+        with col_app1:
+            st.write(f"**Tgl Pengajuan:** {row_data[0]}")
+            st.write(f"**Dibayarkan Kepada:** {row_data[4]} / {row_data[5]}")
+            st.write(f"**Departemen:** {row_data[6]}")
+        with col_app2:
+            st.write(f"**Nominal:** Rp {int(row_data[7]):,}")
+            st.write(f"**Keperluan:** {row_data[9]}")
+            st.write(f"**Janji Penyelesaian:** {row_data[11]}")
+            
+        st.write(f"**Status Saat Ini:** `{row_data[14]}`")
+        st.divider()
         
         if row_data[14] == "Pending":
             c1, c2 = st.columns(2)
-            if c1.button("✅ APPROVE", use_container_width=True):
+            if c1.button("✅ APPROVE", use_container_width=True, type="primary"):
                 sheet.update_cell(cell.row, 15, "APPROVED")
                 st.success("Berhasil di-Approve!"); st.balloons()
+                st.rerun()
             if c2.button("❌ REJECT", use_container_width=True):
                 sheet.update_cell(cell.row, 15, "REJECTED")
                 st.error("Pengajuan telah di-Reject.")
+                st.rerun()
         else:
-            st.warning("Pengajuan ini sudah diproses sebelumnya.")
-    except: st.error("Data Kasbon tidak ditemukan.")
+            st.warning(f"Pengajuan ini sudah diproses dengan status: {row_data[14]}")
+    except: 
+        st.error("Data Kasbon tidak ditemukan atau ID salah.")
 
 # --- 5. TAMPILAN INPUT USER ---
 else:
@@ -157,7 +173,6 @@ else:
                 db_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("DATABASE_USER")
                 user_records = db_sheet.get_all_records()
                 
-                # --- LOGIKA AMBIL NAMA STORE DARI HEADER 'Kode_Store' ---
                 store_info = next((u for u in user_records if str(u['Kode_Store']) == kode_store), None)
                 
                 if not store_info:
@@ -178,17 +193,13 @@ else:
                     st.error(f"⚠️ Data Manager/Cashier untuk {nama_store_display} tidak lengkap di DATABASE_USER.")
                     st.stop()
             except Exception as e:
-                # Pesan error jika kolom Kode_Store tidak ditemukan atau kode salah
                 if "Kode_Store" in str(e) or "KeyError" in str(type(e).__name__):
                     st.error("⚠️ Kode store tidak ada atau belum terdaftar")
                 else:
                     st.error(f"Gagal memuat database user: {e}")
                 st.stop()
 
-            # MENGGUNAKAN WAKTU WIB
             tgl_obj = datetime.datetime.now(WIB)
-            
-            # --- HEADER DENGAN NAMA STORE DARI DATABASE ---
             st.markdown(f'<span class="store-header">Unit Bisnis Store: {nama_store_display}</span>', unsafe_allow_html=True)
             
             st.markdown('<div class="label-container"><span class="label-text">Email Request</span></div>', unsafe_allow_html=True)
