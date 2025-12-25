@@ -9,6 +9,8 @@ from email.mime.base import MIMEBase
 from email import encoders
 from email.utils import formataddr
 from oauth2client.service_account import ServiceAccountCredentials
+from googleapiclient.discovery import build # Library tambahan untuk Drive
+from googleapiclient.http import MediaIoBaseUpload # Library tambahan untuk Upload
 
 # --- 1. SETTING HALAMAN & CSS ---
 st.set_page_config(page_title="Kasbon Digital Petty Cash", layout="centered")
@@ -69,6 +71,7 @@ SENDER_EMAIL = "achmad.setiawan@kawanlamacorp.com"
 APP_PASSWORD = st.secrets["APP_PASSWORD"] 
 BASE_URL = "https://digital-kasbon-ahi.streamlit.app" 
 SPREADSHEET_ID = "1TGsCKhBC0E0hup6RGVbGrpB6ds5Jdrp5tNlfrBORzaI"
+DRIVE_FOLDER_ID = "1H6aZbRbJ7Kw7zdTqkIED1tQUrBR43dBr" # ID Folder Drive Baru
 WIB = datetime.timezone(datetime.timedelta(hours=7))
 
 def get_creds():
@@ -140,11 +143,6 @@ if query_id:
         status_cashier = row_data[18] if len(row_data) > 18 else ""
 
         # Mapping Data Baru (Requester Flow) - Kolom U, V, W, X, Y
-        # Index 20: Status Uang Diterima
-        # Index 21: Tgl Uang Diterima
-        # Index 22: Uang Digunakan
-        # Index 23: Bukti Realisasi
-        # Index 24: Status Realisasi
         status_terima = row_data[20] if len(row_data) > 20 else ""
         
         # --- LOGIKA TAMPILAN REQUESTER (TANPA LOGIN) ---
@@ -245,14 +243,10 @@ if query_id:
                 if st.button("Kirim Laporan Realisasi", type="primary", use_container_width=True):
                     if bukti_real and uang_digunakan >= 0:
                         try:
-                            # Upload tidak diimplementasikan penuh (hanya placeholder text di DB sesuai kode awal)
+                            # Upload placeholder (Sesuai kode awal, realisasi belum pakai Drive upload yang requested, hanya teks placeholder)
                             link_bukti = "Lampiran Ada (File/Foto)" 
                             
                             # Update DB
-                            # Col W (23): Uang Digunakan
-                            # Col X (24): Bukti (String placeholder)
-                            # Col Y (25): Status Realisasi
-                            # Col Z (26): Tgl Realisasi
                             tgl_real = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
                             
                             sheet.update_cell(cell.row, 23, uang_digunakan)
@@ -325,6 +319,7 @@ if query_id:
             st.write(f"**Terbilang:** {r_terbilang_awal}")
             st.write(f"**Janji:** {r_janji}")
         st.write(f"**Keperluan:** {r_keperluan}")
+        st.write(f"**Approval Pendukung:** {row_data[10] if len(row_data) > 10 else '-'}") # Menampilkan Link Drive di Portal
         st.write(f"**Status Saat Ini:** `{display_status}`")
         st.divider()
 
@@ -545,21 +540,43 @@ else:
                             no_p = f"{prefix}{str(last_n + 1).zfill(3)}"
                             
                             final_t = terbilang(int(nom_r)).title() + " Rupiah"
-                            link_db = "Terlampir di Email" if bukti else "-"
                             
+                            # --- UPLOAD TO DRIVE LOGIC ---
+                            link_drive = "-"
+                            if bukti:
+                                try:
+                                    # Menentukan Nama File
+                                    file_type = bukti.type
+                                    ext = file_type.split("/")[-1]
+                                    file_name = f"LAMPIRAN_{no_p}.{ext}"
+                                    
+                                    # Proses Upload
+                                    service = build('drive', 'v3', credentials=creds)
+                                    file_metadata = {
+                                        'name': file_name,
+                                        'parents': [DRIVE_FOLDER_ID]
+                                    }
+                                    media = MediaIoBaseUpload(bukti, mimetype=file_type)
+                                    file_drive = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
+                                    link_drive = file_drive.get('webViewLink')
+                                except Exception as e:
+                                    st.error(f"Gagal Upload ke Drive: {e}")
+                                    st.stop()
+                            # -----------------------------
+
                             sheet.append_row([
                                 tgl_now.strftime("%Y-%m-%d %H:%M:%S"), no_p, kode_store, pic_email, 
-                                nama_p, nip, dept, nom_r, final_t, kep, link_db, 
+                                nama_p, nip, dept, nom_r, final_t, kep, link_drive, 
                                 janji.strftime("%d/%m/%Y"), sc_f, mgr_f, 
                                 "", "Pending", "", "", "", "",
-                                "", "", "", "", "", "" # Placeholder untuk kolom baru (21-26)
+                                "", "", "", "", "", "" 
                             ])
                             
                             mgr_clean = mgr_f.split(" - ")[1].split(" (")[0]
                             tgl_full = tgl_now.strftime("%d/%m/%Y %H:%M")
                             app_link = f"{BASE_URL}?id={no_p}"
-                            link_html = "Lihat Lampiran di bawah" if bukti else "-"
                             
+                            # Update Email Body: Lampiran berisi Link Drive
                             email_body = f"""
                             <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                                 <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {mgr_clean}</div>
@@ -571,7 +588,7 @@ else:
                                     <tr><td style='padding: 2px 0;'>Departement</td><td>: {dept}</td></tr>
                                     <tr><td style='padding: 2px 0;'>Senilai</td><td>: Rp {int(nom_r):,} ({final_t})</td></tr>
                                     <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {kep}</td></tr>
-                                    <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: {link_html}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: <a href="{link_drive}">{link_drive}</a></td></tr>
                                     <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {janji.strftime("%d/%m/%Y")}</td></tr>
                                 </table>
                                 <div style='margin-top: 15px; margin-bottom: 10px;'>
@@ -580,7 +597,8 @@ else:
                                 <div>Terima Kasih</div>
                             </body></html>
                             """
-                            send_email_with_attachment(mgr_map[mgr_f], f"Pengajuan Kasbon {no_p}", email_body, bukti)
+                            # Kirim email TANPA attachment fisik (attachment_file=None)
+                            send_email_with_attachment(mgr_map[mgr_f], f"Pengajuan Kasbon {no_p}", email_body, attachment_file=None)
                         
                         st.session_state.data_ringkasan = {'no_pengajuan': no_p, 'kode_store': kode_store, 'nama': nama_p, 'nip': nip, 'dept': dept, 'nominal': nom_r, 'terbilang': final_t, 'keperluan': kep, 'janji': janji.strftime("%d/%m/%Y")}
                         st.session_state.submitted = True; st.session_state.show_errors = False; st.rerun()
