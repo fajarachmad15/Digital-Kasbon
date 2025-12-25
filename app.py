@@ -200,20 +200,28 @@ if query_id:
                         cashier_name = cashier_info.split(" - ")[1].split(" (")[0]
                         
                         email_msg = f"""
-                        Dear Bapak / Ibu {cashier_name}
-                        <br><br>
-                        Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVE</b> oleh Manager:
-                        <br><br>
-                        Nomor Pengajuan Kasbon : {query_id}<br>
-                        Tgl dan Jam Pengajuan : {row_data[0]}<br>
-                        Dibayarkan Kepada : {row_data[4]} / {row_data[5]}<br>
-                        Departement : {row_data[6]}<br>
-                        Senilai : Rp {int(row_data[7]):,} ({row_data[8]})<br>
-                        Untuk Keperluan : {row_data[9]}<br>
-                        Approval Pendukung : {row_data[10]}<br>
-                        Janji Penyelesaian : {row_data[11]}
-                        <br><br>
-                        Silahkan klik <a href='{BASE_URL}?id={query_id}'>link berikut</a> untuk melanjutkan prosesnya.
+                        <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
+                            <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {cashier_name}</div>
+                            
+                            <div style='margin-bottom: 10px;'>Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVE</b> oleh Manager:</div>
+                            
+                            <table style='border: none; border-collapse: collapse; width: 100%; max-width: 600px;'>
+                                <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {query_id}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Tgl dan Jam Pengajuan</td><td>: {row_data[0]}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Dibayarkan Kepada</td><td>: {row_data[4]} / {row_data[5]}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Departement</td><td>: {row_data[6]}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Senilai</td><td>: Rp {int(row_data[7]):,} ({row_data[8]})</td></tr>
+                                <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {row_data[9]}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: {row_data[10]}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {row_data[11]}</td></tr>
+                            </table>
+                            
+                            <div style='margin-top: 15px; margin-bottom: 10px;'>
+                                Silahkan klik <a href='{BASE_URL}?id={query_id}' style='text-decoration: none; color: #0000EE;'>link berikut</a> untuk melanjutkan prosesnya.
+                            </div>
+                            
+                            <div>Terima Kasih</div>
+                        </body></html>
                         """
                         send_email_with_attachment(cashier_email, f"Verifikasi Kasbon {query_id}", email_msg)
                     except: pass
