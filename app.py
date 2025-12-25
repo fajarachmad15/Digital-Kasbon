@@ -84,17 +84,20 @@ def get_creds():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     return ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 
-def send_email_with_attachment(to_email, subject, message_body, attachment_file=None):
+# --- PERBAIKAN: Fungsi Email dibuat Single Part (MIMEText) dan Attachment Dihilangkan ---
+def send_email_with_attachment(to_email, subject, message_body):
     try:
-        msg = MIMEMultipart(); msg['Subject'] = subject; msg['To'] = to_email
+        # Gunakan MIMEText langsung agar email menjadi satu bagian utuh (tanpa multipart)
+        msg = MIMEText(message_body, 'html')
+        msg['Subject'] = subject
+        msg['To'] = to_email
         msg['From'] = formataddr(("Bot_KasbonPC_Digital <No-Reply>", SENDER_EMAIL))
-        msg.attach(MIMEText(message_body, 'html'))
-        if attachment_file:
-            part = MIMEBase('application', 'octet-stream'); part.set_payload(attachment_file.getvalue())
-            encoders.encode_base64(part); part.add_header('Content-Disposition', f'attachment; filename={attachment_file.name}')
-            msg.attach(part)
+        
+        # Logika attachment dihapus total sesuai permintaan
+        
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(SENDER_EMAIL, APP_PASSWORD); server.sendmail(SENDER_EMAIL, to_email, msg.as_string())
+            server.login(SENDER_EMAIL, APP_PASSWORD)
+            server.sendmail(SENDER_EMAIL, to_email, msg.as_string())
         return True
     except: return False
 
@@ -608,7 +611,7 @@ else:
                                         except ValueError:
                                             st.error("Server Google menolak akses. PASTIKAN SUDAH 'NEW DEPLOYMENT' dengan akses 'ANYONE'.")
                                             st.stop()
-                                        
+                                    
                                 except Exception as e:
                                     st.error(f"Error Koneksi Upload: {e}")
                                     st.stop()
@@ -647,8 +650,8 @@ else:
                                 <div>Terima Kasih</div>
                             </body></html>
                             """
-                            # Kirim email TANPA attachment fisik (attachment_file=None)
-                            send_email_with_attachment(mgr_map[mgr_f], f"Pengajuan Kasbon {no_p}", email_body, attachment_file=None)
+                            # Kirim email TANPA attachment fisik (attachment dihapus)
+                            send_email_with_attachment(mgr_map[mgr_f], f"Pengajuan Kasbon {no_p}", email_body)
                         
                         st.session_state.data_ringkasan = {'no_pengajuan': no_p, 'kode_store': kode_store, 'nama': nama_p, 'nip': nip, 'dept': dept, 'nominal': nom_r, 'terbilang': final_t, 'keperluan': kep, 'janji': janji.strftime("%d/%m/%Y")}
                         st.session_state.submitted = True; st.session_state.show_errors = False; st.rerun()
