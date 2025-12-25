@@ -108,31 +108,43 @@ if 'submitted' not in st.session_state: st.session_state.submitted = False
 if 'data_ringkasan' not in st.session_state: st.session_state.data_ringkasan = {}
 if 'show_errors' not in st.session_state: st.session_state.show_errors = False
 if 'mgr_logged_in' not in st.session_state: st.session_state.mgr_logged_in = False
-if 'user_role' not in st.session_state: st.session_state.user_role = "" # New: Simpan Role User
+if 'user_role' not in st.session_state: st.session_state.user_role = "" 
 
 # --- 4. TAMPILAN APPROVAL (MANAGER & CASHIER) ---
 query_id = st.query_params.get("id")
 if query_id:
-    # Cek Status untuk Judul Portal
     try:
         creds = get_creds()
         client = gspread.authorize(creds)
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet("DATA_KASBON_AZKO")
         cell = sheet.find(query_id)
         row_data = sheet.row_values(cell.row)
-        status_now = row_data[14]
+        
+        # MAPPING DATABASE (SESUAI REQUEST)
+        # Index 14 (Kolom O) = Status Approval MGR
+        # Index 15 (Kolom P) = Verifikasi Cashier
+        # Index 16 (Kolom Q) = Alasan
+        status_mgr = row_data[14]
+        status_cashier = row_data[15] if len(row_data) > 15 else ""
+        reason_reject = row_data[16] if len(row_data) > 16 else "-"
 
-        # Judul Portal Dinamis
-        if status_now == "Pending":
+        # Logika Judul & Status Saat Ini
+        if status_mgr == "Pending":
             judul_portal = "Portal Approval Manager"
-        elif status_now == "APPROVED":
+            display_status = "PENDING (Waiting Manager)"
+        elif status_mgr == "APPROVED" and (status_cashier == "" or status_cashier == "Pending"):
             judul_portal = "Portal Verifikasi Cashier"
+            display_status = "APPROVED (Waiting Cashier)"
+        elif status_cashier == "APPROVED":
+            judul_portal = "Portal Informasi Pengajuan"
+            display_status = "APPROVED"
         else:
             judul_portal = "Portal Informasi Pengajuan"
+            display_status = "REJECTED"
 
         st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
 
-        # LOGIN CREDENTIAL (MANAGER / CASHIER)
+        # LOGIN CREDENTIAL
         if not st.session_state.mgr_logged_in:
             st.subheader("🔐 Verifikasi Manager/Cashier")
             v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
@@ -140,17 +152,16 @@ if query_id:
             if st.button("Masuk & Verifikasi", type="primary", use_container_width=True):
                 if len(v_nik) == 6 and len(v_pass) >= 6:
                     records = client.open_by_key(SPREADSHEET_ID).worksheet("DATABASE_USER").get_all_records()
-                    # LOGIKA FIX NIK (zfill) & GET ROLE
                     user = next((r for r in records if str(r['NIK']).zfill(6) == v_nik and str(r['Password']) == v_pass), None)
                     if user: 
                         st.session_state.mgr_logged_in = True
-                        st.session_state.user_role = user['Role'] # SIMPAN ROLE
+                        st.session_state.user_role = user['Role']
                         st.rerun()
                     else: st.error("NIK atau Password salah.")
                 else: st.warning("Cek kembali NIK & Password.")
             st.stop()
 
-        # TAMPILAN DATA
+        # TAMPILAN DATA RINCIAN
         st.info(f"### Rincian Pengajuan: {query_id}")
         c1, c2 = st.columns(2)
         with c1:
@@ -163,110 +174,87 @@ if query_id:
             st.write(f"**Janji:** {row_data[11]}")
         
         st.write(f"**Keperluan:** {row_data[9]}")
-        
-        # LOGIKA DISPLAY STATUS (Custom untuk REJECTED)
-        if status_now == "REJECTED":
-            # Ambil alasan dari kolom ke-16 (Index 15) jika ada
-            reason_reject = row_data[15] if len(row_data) > 15 else "-"
-            st.write(f"**Status Saat Ini:** `{status_now}`")
-            st.error(f"Status kasbon di rejek karena {reason_reject}")
-        else:
-            st.write(f"**Status Saat Ini:** `{status_now}`")
-            
+        st.write(f"**Status Saat Ini:** `{display_status}`")
         st.divider()
 
-        # --- LOGIKA PORTAL TERPISAH & ACTIONS ---
+        # --- LOGIKA UTAMA (PEMISAHAN PORTAL & UPDATE DB) ---
         
-        # 1. STATUS PENDING -> KHUSUS MANAGER
-        if status_now == "Pending":
-            # Cek Role
-            if st.session_state.user_role != "Manager":
-                st.error("⛔ Akses Ditolak. Halaman ini khusus untuk Manager.")
-                st.stop()
+        # 1. POSISI: MANAGER PENDING
+        if status_mgr == "Pending":
+            if st.session_state.user_role == "Manager":
+                alasan = st.text_area("Alasan Reject (Wajib diisi jika Reject)", placeholder="Contoh: Nominal terlalu besar...")
+                b1, b2 = st.columns(2)
+                
+                # ACTION: APPROVE MANAGER
+                if b1.button("✓ APPROVE", use_container_width=True):
+                    sheet.update_cell(cell.row, 15, "APPROVED") # Update Kolom O
+                    # Kirim Email Notif ke Cashier
+                    try:
+                        cashier_info = row_data[12] 
+                        cashier_email = cashier_info.split("(")[1].split(")")[0]
+                        cashier_name = cashier_info.split(" - ")[1].split(" (")[0]
+                        email_msg = f"""
+                        Dear Bapak / Ibu {cashier_name}<br><br>
+                        Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVED</b> oleh Manager:<br><br>
+                        Nomor Pengajuan : {query_id}<br>
+                        Silahkan klik <a href='{BASE_URL}?id={query_id}'>link berikut</a> untuk melakukan verifikasi.
+                        """
+                        send_email_with_attachment(cashier_email, f"Verifikasi Kasbon {query_id}", email_msg)
+                    except: pass
+                    st.success("Approved! Menunggu verifikasi cashier."); st.balloons(); st.rerun()
 
-            alasan = st.text_area("Alasan Reject (Wajib diisi jika Reject)", placeholder="Contoh: Nominal terlalu besar...")
+                # ACTION: REJECT MANAGER
+                if b2.button("✕ REJECT", use_container_width=True):
+                    if not alasan: st.error("Harap isi alasan reject!"); st.stop()
+                    sheet.update_cell(cell.row, 15, "REJECTED") # Update Kolom O
+                    sheet.update_cell(cell.row, 17, alasan)    # Update Kolom Q (Alasan)
+                    st.error("Pengajuan telah di-Reject."); st.rerun()
             
-            b1, b2 = st.columns(2)
-            if b1.button("✓ APPROVE", use_container_width=True):
-                sheet.update_cell(cell.row, 15, "APPROVED")
-                # KIRIM EMAIL KE CASHIER (APPROVE)
-                try:
-                    cashier_info = row_data[12] 
-                    cashier_email = cashier_info.split("(")[1].split(")")[0]
-                    cashier_name = cashier_info.split(" - ")[1].split(" (")[0]
-                    
-                    email_msg = f"""
-                    Dear Bapak / Ibu {cashier_name}
-                    <br><br>
-                    Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVE</b> oleh Manager:
-                    <br><br>
-                    Nomor Pengajuan Kasbon : {query_id}<br>
-                    Tgl dan Jam Pengajuan : {row_data[0]}<br>
-                    Dibayarkan Kepada : {row_data[4]} / {row_data[5]}<br>
-                    Departement : {row_data[6]}<br>
-                    Senilai : Rp {int(row_data[7]):,} ({row_data[8]})<br>
-                    Untuk Keperluan : {row_data[9]}<br>
-                    Approval Pendukung : {row_data[10]}<br>
-                    Janji Penyelesaian : {row_data[11]}
-                    <br><br>
-                    Silahkan klik <a href='{BASE_URL}?id={query_id}'>link berikut</a> untuk melanjutkan prosesnya.
-                    """
-                    send_email_with_attachment(cashier_email, f"Verifikasi Kasbon {query_id}", email_msg)
-                except: pass
-                
-                st.success("Approved & Notifikasi Cashier terkirim!"); st.balloons(); st.rerun()
+            else:
+                # Jika yang login bukan Manager
+                st.info("Menunggu Approval Manager")
 
-            if b2.button("✕ REJECT", use_container_width=True):
-                if not alasan: st.error("Harap isi alasan reject!"); st.stop()
-                # UPDATE STATUS & REASON (Kolom 15=Status, 16=Reason)
-                sheet.update_cell(cell.row, 15, "REJECTED")
-                sheet.update_cell(cell.row, 16, alasan) 
-                
-                # KIRIM EMAIL KE CASHIER (REJECT)
-                try:
-                    cashier_info = row_data[12]
-                    cashier_email = cashier_info.split("(")[1].split(")")[0]
-                    cashier_name = cashier_info.split(" - ")[1].split(" (")[0]
-                    
-                    email_msg = f"""
-                    Dear Bapak / Ibu {cashier_name}
-                    <br><br>
-                    Pengajuan kasbon dengan data dibawah ini telah di-<b>REJECT</b> oleh Manager.<br>
-                    <b>Reason Reject:</b> {alasan}
-                    <br><br>
-                    Nomor Pengajuan Kasbon : {query_id}<br>
-                    Dibayarkan Kepada : {row_data[4]} / {row_data[5]}<br>
-                    Senilai : Rp {int(row_data[7]):,}
-                    <br><br>
-                    Silahkan cek sistem.
-                    """
-                    send_email_with_attachment(cashier_email, f"Penolakan Kasbon {query_id}", email_msg)
-                except: pass
-                
-                st.error("Pengajuan telah di-Reject."); st.rerun()
-
-        # 2. STATUS APPROVED -> KHUSUS SENIOR CASHIER
-        elif status_now == "APPROVED":
-            # Cek Role
-            if st.session_state.user_role != "Senior Cashier":
-                st.error("⛔ Akses Ditolak. Halaman ini khusus untuk Senior Cashier.")
-                st.stop()
+        # 2. POSISI: MANAGER APPROVED -> MENUNGGU CASHIER
+        elif status_mgr == "APPROVED":
             
-            # TAMPILAN BARU SESUAI REQUEST (TOMBOL DIHAPUS)
-            st.info("Status kasbon disetujui")
-        
-        # 3. STATUS REJECTED / OTHER
-        elif status_now == "REJECTED":
-            # Pesan error sudah ditampilkan di bagian Header Data di atas
-            pass
+            # Jika Cashier Belum Verifikasi
+            if status_cashier == "" or status_cashier == "Pending":
+                if st.session_state.user_role == "Senior Cashier":
+                    # TAMPILAN CASHIER (SAMA PERSIS DENGAN MANAGER)
+                    alasan_c = st.text_area("Alasan Reject (Wajib diisi jika Reject)", placeholder="Contoh: Saldo fisik tidak cukup...")
+                    k1, k2 = st.columns(2)
+                    
+                    # ACTION: APPROVE CASHIER
+                    if k1.button("✓ VERIFIKASI APPROVE", use_container_width=True):
+                        sheet.update_cell(cell.row, 16, "APPROVED") # Update Kolom P
+                        st.success("Verifikasi Berhasil. Status Selesai."); st.balloons(); st.rerun()
+                    
+                    # ACTION: REJECT CASHIER
+                    if k2.button("✕ VERIFIKASI REJECT", use_container_width=True):
+                        if not alasan_c: st.error("Harap isi alasan reject!"); st.stop()
+                        sheet.update_cell(cell.row, 16, "REJECTED") # Update Kolom P
+                        sheet.update_cell(cell.row, 17, alasan_c)   # Update Kolom Q
+                        st.error("Verifikasi Ditolak."); st.rerun()
+                else:
+                    # Jika yang login bukan Cashier (misal Manager cek status) -> TIDAK ADA ERROR
+                    st.info("Menunggu Verifikasi Cashier")
 
-        else:
-            st.warning(f"Pengajuan ini sudah selesai: {status_now}")
+            # Jika Cashier Sudah Approve
+            elif status_cashier == "APPROVED":
+                st.info("Status kasbon disetujui")
+
+            # Jika Cashier Reject
+            elif status_cashier == "REJECTED":
+                st.error(f"Status kasbon di rejek karena {reason_reject}")
+
+        # 3. POSISI: MANAGER REJECTED
+        elif status_mgr == "REJECTED":
+             st.error(f"Status kasbon di rejek karena {reason_reject}")
 
     except Exception as e: st.error(f"Error Database: {e}")
     st.stop()
 
-# --- 5. TAMPILAN INPUT USER (SAMA PERSIS DENGAN YANG LAMA) ---
+# --- 5. TAMPILAN INPUT USER (FORMULIR PENGAJUAN) ---
 if st.session_state.submitted:
     d = st.session_state.data_ringkasan
     st.success("## ✅ PENGAJUAN TELAH TERKIRIM")
@@ -377,10 +365,11 @@ else:
                             final_t = terbilang(int(nom_r)).title() + " Rupiah"
                             link_db = "Terlampir di Email" if bukti else "-"
                             
+                            # UPDATE STRUKTUR DATA (3 KOLOM TERAKHIR: STATUS MGR, STATUS CASHIER, ALASAN)
                             sheet.append_row([
                                 tgl_now.strftime("%Y-%m-%d %H:%M:%S"), no_p, kode_store, pic_email, 
                                 nama_p, nip, dept, nom_r, final_t, kep, link_db, 
-                                janji.strftime("%d/%m/%Y"), sc_f, mgr_f, "Pending", ""
+                                janji.strftime("%d/%m/%Y"), sc_f, mgr_f, "Pending", "", ""
                             ])
                             
                             mgr_clean = mgr_f.split(" - ")[1].split(" (")[0]
@@ -388,7 +377,6 @@ else:
                             app_link = f"{BASE_URL}?id={no_p}"
                             link_html = "Lihat Lampiran di bawah" if bukti else "-"
                             
-                            # --- PERUBAHAN TAMPILAN EMAIL (MENYATU & SESUAI REQUEST) ---
                             email_body = f"""
                             <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                                 <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {mgr_clean}</div>
