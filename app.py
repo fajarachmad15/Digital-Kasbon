@@ -126,6 +126,7 @@ if query_id:
         # Index 16 (Kolom Q) = Verifikasi_Cashier
         # Index 17 (Kolom R) = Reason_Reject_Csr
         
+        # Ambil data dengan aman (cek panjang list)
         status_mgr = row_data[14] if len(row_data) > 14 else "Pending"
         reason_mgr = row_data[15] if len(row_data) > 15 else ""
         status_cashier = row_data[16] if len(row_data) > 16 else ""
@@ -190,38 +191,19 @@ if query_id:
                 
                 # ACTION: APPROVE MANAGER
                 if b1.button("✓ APPROVE", use_container_width=True):
-                    # Update Kolom O
+                    # Update Kolom O (Index 15 di Gspread 1-based)
                     sheet.update_cell(cell.row, 15, "APPROVED") 
                     
-                    # Kirim Email Notif ke Cashier (DENGAN FORMAT BARU LENGKAP)
+                    # Kirim Email Notif ke Cashier
                     try:
                         cashier_info = row_data[12] 
                         cashier_email = cashier_info.split("(")[1].split(")")[0]
                         cashier_name = cashier_info.split(" - ")[1].split(" (")[0]
-                        
                         email_msg = f"""
-                        <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
-                            <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {cashier_name}</div>
-                            
-                            <div style='margin-bottom: 10px;'>Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVE</b> oleh Manager:</div>
-                            
-                            <table style='border: none; border-collapse: collapse; width: 100%; max-width: 600px;'>
-                                <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {query_id}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Tgl dan Jam Pengajuan</td><td>: {row_data[0]}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Dibayarkan Kepada</td><td>: {row_data[4]} / {row_data[5]}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Departement</td><td>: {row_data[6]}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Senilai</td><td>: Rp {int(row_data[7]):,} ({row_data[8]})</td></tr>
-                                <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {row_data[9]}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: {row_data[10]}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {row_data[11]}</td></tr>
-                            </table>
-                            
-                            <div style='margin-top: 15px; margin-bottom: 10px;'>
-                                Silahkan klik <a href='{BASE_URL}?id={query_id}' style='text-decoration: none; color: #0000EE;'>link berikut</a> untuk melanjutkan prosesnya.
-                            </div>
-                            
-                            <div>Terima Kasih</div>
-                        </body></html>
+                        Dear Bapak / Ibu {cashier_name}<br><br>
+                        Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVED</b> oleh Manager:<br><br>
+                        Nomor Pengajuan : {query_id}<br>
+                        Silahkan klik <a href='{BASE_URL}?id={query_id}'>link berikut</a> untuk melakukan verifikasi.
                         """
                         send_email_with_attachment(cashier_email, f"Verifikasi Kasbon {query_id}", email_msg)
                     except: pass
@@ -236,29 +218,34 @@ if query_id:
                     st.error("Pengajuan telah di-Reject."); st.rerun()
             
             else:
+                # Jika user bukan Manager, tampilkan status saja (Tanpa Error)
                 st.info("Menunggu Approval Manager")
 
         # 2. POSISI: MANAGER APPROVED -> MENUNGGU CASHIER
         elif status_mgr == "APPROVED":
             
-            # Jika Cashier Belum Verifikasi
+            # Jika Cashier Belum Verifikasi (Kolom Q Kosong/Pending)
             if status_cashier == "" or status_cashier == "Pending":
                 if st.session_state.user_role == "Senior Cashier":
+                    # TAMPILAN CASHIER (SAMA PERSIS DENGAN MANAGER)
                     alasan_c = st.text_area("Alasan Reject (Wajib diisi jika Reject)", placeholder="Contoh: Saldo fisik tidak cukup...")
                     k1, k2 = st.columns(2)
                     
                     # ACTION: APPROVE CASHIER
                     if k1.button("✓ VERIFIKASI APPROVE", use_container_width=True):
-                        sheet.update_cell(cell.row, 17, "APPROVED") # Update Kolom Q
+                        # Update Kolom Q (Index 17)
+                        sheet.update_cell(cell.row, 17, "APPROVED") 
                         st.success("Verifikasi Berhasil. Status Selesai."); st.balloons(); st.rerun()
                     
                     # ACTION: REJECT CASHIER
                     if k2.button("✕ VERIFIKASI REJECT", use_container_width=True):
                         if not alasan_c: st.error("Harap isi alasan reject!"); st.stop()
-                        sheet.update_cell(cell.row, 17, "REJECTED") # Update Kolom Q
-                        sheet.update_cell(cell.row, 18, alasan_c)   # Update Kolom R
+                        # Update Kolom Q (Status) & R (Reason)
+                        sheet.update_cell(cell.row, 17, "REJECTED") 
+                        sheet.update_cell(cell.row, 18, alasan_c)   
                         st.error("Verifikasi Ditolak."); st.rerun()
                 else:
+                    # Jika user bukan Cashier (misal Manager cek status), tampilkan info saja (Tanpa Error "Akses Ditolak")
                     st.info("Menunggu Verifikasi Cashier")
 
             # Jika Cashier Sudah Approve
@@ -388,6 +375,7 @@ else:
                             link_db = "Terlampir di Email" if bukti else "-"
                             
                             # === UPDATE STRUKTUR DATA (4 KOLOM TERAKHIR KOSONG UNTUK: O, P, Q, R) ===
+                            # O: Status MGR, P: Reason MGR, Q: Status CSR, R: Reason CSR
                             sheet.append_row([
                                 tgl_now.strftime("%Y-%m-%d %H:%M:%S"), no_p, kode_store, pic_email, 
                                 nama_p, nip, dept, nom_r, final_t, kep, link_db, 
