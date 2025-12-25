@@ -387,4 +387,4 @@ else:
                     except Exception as e: st.error(f"Error Sistem: {e}")
                 else:
                     st.session_state.show_errors = True; st.rerun()
-        except: st.error("Database Error.")
+        except Exception as e: st.error(f"Database Error: {e}")
