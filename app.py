@@ -200,23 +200,21 @@ if query_id:
                         cashier_email = cashier_info.split("(")[1].split(")")[0]
                         cashier_name = cashier_info.split(" - ")[1].split(" (")[0]
                         
-                        # Data untuk tabel email
+                        # === PERBAIKAN FORMAT EMAIL KE CASHIER ===
                         r_tgl = row_data[0]
                         r_bayar = f"{row_data[4]} / {row_data[5]}"
                         r_dept = row_data[6]
                         r_nom = f"Rp {int(row_data[7]):,}"
                         r_terbilang = row_data[8]
                         r_kep = row_data[9]
+                        r_approve_supp = row_data[10]
                         r_janji = row_data[11]
-                        # Gunakan data link jika ada, atau strip jika tidak ada (sesuai gambar)
-                        r_approve_supp = row_data[10] if row_data[10] not in ["-", ""] else "-"
 
-                        # REVISI EMAIL BODY (HTML TABLE)
                         email_msg = f"""
                         <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                             <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {cashier_name}</div>
                             
-                            <div style='margin-bottom: 10px;'>Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVE</b> oleh Manager:</div>
+                            <div style='margin-bottom: 10px;'>Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVED</b> oleh Manager:</div>
                             
                             <table style='border: none; border-collapse: collapse; width: 100%; max-width: 600px;'>
                                 <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {query_id}</td></tr>
