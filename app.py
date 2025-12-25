@@ -3,8 +3,8 @@ import datetime
 import gspread
 import io
 import smtplib
-import requests # LIBRARY BARU (Untuk Jembatan ke Drive)
-import base64   # LIBRARY BARU (Untuk ubah file jadi teks)
+import requests  # LIBRARY WAJIB
+import base64    # LIBRARY WAJIB
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -72,10 +72,11 @@ APP_PASSWORD = st.secrets["APP_PASSWORD"]
 BASE_URL = "https://digital-kasbon-ahi.streamlit.app" 
 SPREADSHEET_ID = "1TGsCKhBC0E0hup6RGVbGrpB6ds5Jdrp5tNlfrBORzaI"
 
-# --- KONFIGURASI DRIVE BARU (JANGAN UBAH INI) ---
+# --- CONFIG BARU ---
+# Pastikan ini URL Deployment TERBARU Anda
 APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHRNud5-Stn_1WoVwTyodXRzsVH7ApgQAActIn6JPZdaXm2bHtcd4wZjB8BXa2i8Pu/exec"
 DRIVE_FOLDER_ID = "1H6aZbRbJ7Kw7zdTqkIED1tQUrBR43dBr"
-# ------------------------------------------------
+# -------------------
 
 WIB = datetime.timezone(datetime.timedelta(hours=7))
 
@@ -148,11 +149,6 @@ if query_id:
         status_cashier = row_data[18] if len(row_data) > 18 else ""
 
         # Mapping Data Baru (Requester Flow) - Kolom U, V, W, X, Y
-        # Index 20: Status Uang Diterima
-        # Index 21: Tgl Uang Diterima
-        # Index 22: Uang Digunakan
-        # Index 23: Bukti Realisasi
-        # Index 24: Status Realisasi
         status_terima = row_data[20] if len(row_data) > 20 else ""
         
         # --- LOGIKA TAMPILAN REQUESTER (TANPA LOGIN) ---
@@ -271,7 +267,14 @@ if query_id:
                                     }
                                     with st.spinner("Mengupload Bukti Realisasi..."):
                                         res = requests.post(APPS_SCRIPT_URL, json=pl)
-                                        rj = res.json()
+                                        # CEK ERROR JSON
+                                        try:
+                                            rj = res.json()
+                                        except ValueError:
+                                            st.error("Server Google menolak akses. Cek Deployment 'Who has access' harus 'Anyone'.")
+                                            st.write("Respon Server:", res.text) # Tampilkan respon asli
+                                            st.stop()
+
                                         if rj.get("status") == "success":
                                             link_bukti = rj.get("url")
                                         else:
@@ -281,10 +284,6 @@ if query_id:
                             # ----------------------------------------------
                             
                             # Update DB
-                            # Col W (23): Uang Digunakan
-                            # Col X (24): Bukti
-                            # Col Y (25): Status Realisasi
-                            # Col Z (26): Tgl Realisasi
                             tgl_real = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
                             
                             sheet.update_cell(cell.row, 23, uang_digunakan)
@@ -601,13 +600,19 @@ else:
                                     
                                     with st.spinner("Mengupload ke Drive..."):
                                         response = requests.post(APPS_SCRIPT_URL, json=payload)
-                                        res_json = response.json()
-                                    
-                                    if res_json.get("status") == "success":
-                                        link_drive = res_json.get("url")
-                                    else:
-                                        st.error(f"Gagal Upload: {res_json.get('message')}")
-                                        st.stop()
+                                        # CEK ERROR JSON
+                                        try:
+                                            res_json = response.json()
+                                        except ValueError:
+                                            st.error("Server Google menolak akses. Cek Deployment 'Who has access' harus 'Anyone'.")
+                                            st.write("Respon Server:", response.text) # Tampilkan respon asli
+                                            st.stop()
+                                        
+                                        if res_json.get("status") == "success":
+                                            link_drive = res_json.get("url")
+                                        else:
+                                            st.error(f"Gagal Upload: {res_json.get('message')}")
+                                            st.stop()
                                         
                                 except Exception as e:
                                     st.error(f"Error Koneksi Upload: {e}")
