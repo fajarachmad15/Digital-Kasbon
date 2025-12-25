@@ -140,7 +140,8 @@ if query_id:
             if st.button("Masuk & Verifikasi", type="primary", use_container_width=True):
                 if len(v_nik) == 6 and len(v_pass) >= 6:
                     records = client.open_by_key(SPREADSHEET_ID).worksheet("DATABASE_USER").get_all_records()
-                    user = next((r for r in records if str(r['NIK']) == v_nik and str(r['Password']) == v_pass), None)
+                    # PERBAIKAN: Menambahkan .zfill(6) untuk memastikan NIK dari database selalu 6 digit (mengatasi 0 di depan yg hilang)
+                    user = next((r for r in records if str(r['NIK']).zfill(6) == v_nik and str(r['Password']) == v_pass), None)
                     if user: 
                         st.session_state.mgr_logged_in = True
                         st.rerun()
