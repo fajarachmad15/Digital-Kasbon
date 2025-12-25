@@ -1,15 +1,18 @@
 import streamlit as st
 import datetime
 import gspread
+import io
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
 from email.utils import formataddr
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 from oauth2client.service_account import ServiceAccountCredentials
 
-# --- 1. SETTING HALAMAN & CSS (UI FINAL) ---
+# --- 1. SETTING HALAMAN & CSS ---
 st.set_page_config(page_title="Kasbon Digital Petty Cash", layout="centered")
 
 st.markdown("""
@@ -35,7 +38,7 @@ st.markdown("""
         display: block;
     }
 
-    /* STYLING TOMBOL TRANSPARAN */
+    /* STYLING TOMBOL APPROVAL TRANSPARAN */
     .stButton > button {
         border-radius: 8px;
         font-weight: 600;
@@ -52,21 +55,19 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. LOGIKA LOGIN GOOGLE NATIVE (PEMBARUAN UTAMA) ---
+# --- 2. LOGIKA LOGIN GOOGLE (SISIPAN WAJIB) ---
 if not st.experimental_user.is_logged_in:
     st.markdown("## 🌐 Kasbon Digital Petty Cash")
     st.info("Silakan login menggunakan akun Google Anda untuk melanjutkan.")
-    # Tombol Login Native (Trigger Authlib)
     if st.button("Sign in with Google", type="primary", use_container_width=True):
         st.login()
     st.stop()
 
-# AMBIL EMAIL ASLI DARI GOOGLE (BUKAN KETIKAN)
+# Simpan email google ke variabel
 pic_email = st.experimental_user.email
 
 # --- 3. KONFIGURASI ---
 SENDER_EMAIL = "achmad.setiawan@kawanlamacorp.com"
-# Mengambil APP_PASSWORD dari level global (sesuai perbaikan terakhir)
 APP_PASSWORD = st.secrets["APP_PASSWORD"] 
 BASE_URL = "https://digital-kasbon-ahi.streamlit.app" 
 SPREADSHEET_ID = "1TGsCKhBC0E0hup6RGVbGrpB6ds5Jdrp5tNlfrBORzaI"
@@ -89,7 +90,9 @@ def send_email_with_attachment(to_email, subject, message_body, attachment_file=
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(SENDER_EMAIL, APP_PASSWORD); server.sendmail(SENDER_EMAIL, to_email, msg.as_string())
         return True
-    except: return False
+    except Exception as e:
+        st.error(f"Gagal kirim email: {e}")
+        return False
 
 def terbilang(n):
     units = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"]
@@ -115,7 +118,7 @@ query_id = st.query_params.get("id")
 if query_id:
     st.markdown('<span class="store-header">Portal Approval Manager</span>', unsafe_allow_html=True)
     
-    # LOGIN MANAGER (NIK & PASSWORD)
+    # LOGIN MANAGER (NIK & PASSWORD) - TETAP ADA
     if not st.session_state.mgr_logged_in:
         st.subheader("🔐 Verifikasi Manager/Cashier")
         v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
@@ -135,13 +138,15 @@ if query_id:
         st.info(f"### Rincian Pengajuan: {query_id}")
         c1, c2 = st.columns(2)
         with c1:
-            st.write(f"**Tgl:** {row_data[0]}"); st.write(f"**Dibayarkan:** {row_data[4]} / {row_data[5]}")
-            st.write(f"**Dept:** {row_data[6]}")
+            st.write(f"**Tgl Pengajuan:** {row_data[0]}")
+            st.write(f"**Dibayarkan Kepada:** {row_data[4]} / {row_data[5]}")
+            st.write(f"**Departemen:** {row_data[6]}")
         with c2:
             st.write(f"**Nominal:** Rp {int(row_data[7]):,}")
-            st.write(f"**Terbilang:** {row_data[8]}")
-            st.write(f"**Janji:** {row_data[11]}")
-        st.write(f"**Keperluan:** {row_data[9]} | **Status:** `{row_data[14]}`")
+            st.write(f"**Keperluan:** {row_data[9]}")
+            st.write(f"**Janji Penyelesaian:** {row_data[11]}")
+        
+        st.write(f"**Status Saat Ini:** `{row_data[14]}`")
         st.divider()
 
         if row_data[14] == "Pending":
@@ -174,11 +179,14 @@ if st.session_state.submitted:
         st.write(f"**9. Janji Penyelesaian:** {d['janji']}")
 
     c1, c2 = st.columns(2)
-    if c1.button("Buat Baru", use_container_width=True): st.session_state.submitted = False; st.rerun()
-    if c2.button("Logout Google", use_container_width=True): st.logout()
+    if c1.button("Buat Pengajuan Baru"):
+        st.session_state.submitted = False
+        st.session_state.show_errors = False
+        st.rerun()
+    if c2.button("Logout Google"): st.logout()
 
 else:
-    # Tampilkan Email Asli di Atas (Verifikasi Visual)
+    # Tampilkan info login di atas
     st.caption(f"Logged in as: **{pic_email}**") 
     
     st.subheader("📍 Identifikasi Lokasi")
@@ -196,109 +204,113 @@ else:
             
             st.markdown(f'<span class="store-header">Unit Bisnis Store: {store_info["Nama_Store"]}</span>', unsafe_allow_html=True)
             
-            # EMAIL REQUEST OTOMATIS (Non-editable, diambil dari Google)
+            # --- PERUBAHAN DISINI: Menggunakan email dari Google ---
             st.markdown('<div class="label-container"><span class="label-text">Email Request</span></div>', unsafe_allow_html=True)
-            st.text_input("", value=pic_email, disabled=True)
+            email_req = st.text_input("", value=pic_email, disabled=True)
+            # -------------------------------------------------------
 
-            # FORM INPUT LENGKAP DENGAN VALIDASI MERAH (UI SUPER APP)
+            # FORM INPUT LENGKAP (PERSIS SESUAI PERMINTAAN)
             err_nama = '<span class="error-tag">Harap dilengkapi</span>' if st.session_state.show_errors and not st.session_state.get('nama_val') else ''
             st.markdown(f'<div class="label-container"><span class="label-text">Dibayarkan Kepada (Nama Lengkap)</span>{err_nama}</div>', unsafe_allow_html=True)
-            nama_p = st.text_input("", key="nama_val")
+            nama_penerima = st.text_input("", key="nama_val")
 
             err_nip = '<span class="error-tag">Isi sesuai format</span>' if st.session_state.show_errors and (not st.session_state.get('nip_val') or len(st.session_state.get('nip_val')) != 6) else ''
             st.markdown(f'<div class="label-container"><span class="label-text">NIP (Wajib 6 Digit)</span>{err_nip}</div>', unsafe_allow_html=True)
-            nip_p = st.text_input("", max_chars=6, key="nip_val")
+            nip = st.text_input("", max_chars=6, key="nip_val")
 
             err_dept = '<span class="error-tag">Harap dipilih</span>' if st.session_state.show_errors and st.session_state.get('dept_val') == "-" else ''
             st.markdown(f'<div class="label-container"><span class="label-text">Departemen</span>{err_dept}</div>', unsafe_allow_html=True)
             dept = st.selectbox("", ["-", "Operational", "Sales", "Inventory", "HR", "Other"], key="dept_val")
 
             err_nom = '<span class="error-tag">Hanya angka</span>' if st.session_state.show_errors and (not st.session_state.get('nom_val') or not st.session_state.get('nom_val').isdigit()) else ''
-            st.markdown(f'<div class="label-container"><span class="label-text">Nominal (Angka)</span>{err_nom}</div>', unsafe_allow_html=True)
-            nom_r = st.text_input("", key="nom_val")
-            if nom_r.isdigit(): st.caption(f"**Terbilang:** {terbilang(int(nom_r))} Rupiah")
+            st.markdown(f'<div class="label-container"><span class="label-text">Nominal (Hanya Angka)</span>{err_nom}</div>', unsafe_allow_html=True)
+            nominal_raw = st.text_input("", key="nom_val")
+            if nominal_raw and nominal_raw.isdigit():
+                st.caption(f"**Terbilang:** {terbilang(int(nominal_raw)) if int(nominal_raw)>0 else 'Nol'} Rupiah")
 
             err_kep = '<span class="error-tag">Harap dilengkapi</span>' if st.session_state.show_errors and not st.session_state.get('kep_val') else ''
             st.markdown(f'<div class="label-container"><span class="label-text">Untuk Keperluan</span>{err_kep}</div>', unsafe_allow_html=True)
-            kep = st.text_input("", key="kep_val")
+            keperluan = st.text_input("", key="kep_val")
 
+            st.write("📸 **Bukti Lampiran (Maks 5MB)**")
             opsi = st.radio("Metode Lampiran:", ["Upload File", "Kamera"])
-            bukti = st.file_uploader("Pilih file") if opsi == "Upload File" else st.camera_input("Ambil Foto")
+            bukti_file = st.file_uploader("Pilih file") if opsi == "Upload File" else st.camera_input("Ambil Foto")
             
             st.markdown('<div class="label-container"><span class="label-text">Janji Penyelesaian</span></div>', unsafe_allow_html=True)
-            janji = st.date_input("", min_value=datetime.date.today(), key="janji_val")
+            janji_tgl = st.date_input("", min_value=datetime.date.today(), key="janji_val")
 
             managers_db = [f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})" for u in records if str(u['Kode_Store']) == kode_store and u['Role'] == 'Manager']
             cashiers_db = [f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})" for u in records if str(u['Kode_Store']) == kode_store and u['Role'] == 'Senior Cashier']
             
-            mgr_email_map = {f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})": u['Email'] for u in records if str(u['Kode_Store']) == kode_store and u['Role'] == 'Manager'}
+            manager_email_map = {f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})": u['Email'] for u in records if str(u['Kode_Store']) == kode_store and u['Role'] == 'Manager'}
 
             err_mgr = '<span class="error-tag">Harap dipilih</span>' if st.session_state.show_errors and st.session_state.get('mgr_val') == "-" else ''
             st.markdown(f'<div class="label-container"><span class="label-text">Manager Incharge</span>{err_mgr}</div>', unsafe_allow_html=True)
-            mgr_f = st.selectbox("", ["-"] + managers_db, key="mgr_val")
+            mgr_name_full = st.selectbox("", ["-"] + managers_db, key="mgr_val")
 
             err_sc = '<span class="error-tag">Harap dipilih</span>' if st.session_state.show_errors and st.session_state.get('sc_val') == "-" else ''
             st.markdown(f'<div class="label-container"><span class="label-text">Senior Cashier Incharge</span>{err_sc}</div>', unsafe_allow_html=True)
-            sc_f = st.selectbox("", ["-"] + cashiers_db, key="sc_val")
+            senior_cashier = st.selectbox("", ["-"] + cashiers_db, key="sc_val")
 
             st.divider()
             
             if st.session_state.show_errors:
                 st.error("⚠️ Mohon lengkapi semua kolom yang bertanda merah di atas sebelum mengirim.")
 
-            if st.button("Kirim Pengajuan", type="primary", use_container_width=True):
-                # Validasi Lengkap
-                is_valid = nama_p and len(nip_p)==6 and nom_r.isdigit() and kep and dept!="-" and mgr_f!="-" and sc_f!="-"
+            if st.button("Kirim Pengajuan", type="primary"):
+                is_valid = nama_penerima and len(nip)==6 and nominal_raw.isdigit() and keperluan and dept!="-" and senior_cashier!="-" and mgr_name_full!="-"
                 
                 if is_valid:
                     try:
-                        sheet = client.open_by_key(SPREADSHEET_ID).worksheet("DATA_KASBON_AZKO")
-                        tgl_n = datetime.datetime.now(WIB)
-                        
-                        # NOMOR KASBON (Reset Harian)
-                        tgl_str = tgl_n.strftime("%d%m%y")
-                        prefix = f"KB{kode_store}-{tgl_str}-"
-                        all_records = sheet.get_all_values()
-                        last_num = 0
-                        for row in all_records:
-                            if len(row) > 1 and row[1].startswith(prefix):
-                                try:
-                                    num = int(row[1].split("-")[-1])
-                                    last_num = max(last_num, num)
-                                except: continue
-                        no_p = f"{prefix}{str(last_num + 1).zfill(3)}"
-                        
-                        final_t = terbilang(int(nom_r)) + " Rupiah"
-                        janji_str = janji.strftime("%d/%m/%Y")
-                        link_database = "Terlampir di Email" if bukti else "-"
-                        
-                        # RECORD KE DATABASE (Email Asli)
-                        sheet.append_row([
-                            tgl_n.strftime("%Y-%m-%d %H:%M:%S"), no_p, kode_store, pic_email, 
-                            nama_p, nip_p, dept, nom_r, final_t, kep, link_database, 
-                            janji_str, sc_f, mgr_f, "Pending"
-                        ])
-                        
-                        app_link = f"{BASE_URL}?id={no_p}"
-                        mgr_clean = mgr_f.split(" - ")[1].split(" (")[0]
-                        target_email = mgr_email_map.get(mgr_f)
-                        link_html = "Lihat Lampiran di bawah" if bukti else "-"
-                        tgl_full = tgl_n.strftime("%d/%m/%Y %H:%M")
-                        
-                        if target_email:
-                            subject_email = f"Pengajuan Kasbon {no_p}"
+                        with st.spinner("Processing..."):
+                            creds = get_creds()
+                            client = gspread.authorize(creds)
+                            sheet = client.open_by_key(SPREADSHEET_ID).worksheet("DATA_KASBON_AZKO")
+                            
+                            tgl_str = tgl_obj.strftime("%d%m%y")
+                            all_records = sheet.get_all_values()
+                            prefix = f"KB{kode_store}-{tgl_str}-"
+                            last_num = 0
+                            for row in all_records:
+                                if len(row) > 1 and row[1].startswith(prefix):
+                                    try:
+                                        num = int(row[1].split("-")[-1])
+                                        last_num = max(last_num, num)
+                                    except: continue
+                            no_pengajuan = f"{prefix}{str(last_num + 1).zfill(3)}"
+
+                            link_database = "Terlampir di Email" if bukti_file else "-"
+                            final_terbilang = (terbilang(int(nominal_raw)) if int(nominal_raw) > 0 else "Nol") + " Rupiah"
+                            tgl_full = tgl_obj.strftime("%d/%m/%Y %H:%M")
+                            janji_str = janji_tgl.strftime("%d/%m/%Y")
+                            
+                            # --- PERBAIKAN: Masukkan email_req (yg isinya pic_email) ke database ---
+                            data_final = [
+                                datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S"), 
+                                no_pengajuan, kode_store, email_req, 
+                                nama_penerima, nip, dept, nominal_raw, final_terbilang, keperluan,
+                                link_database, janji_str, senior_cashier, mgr_name_full, "Pending"
+                            ]
+                            sheet.append_row(data_final)
+
+                            app_link = f"{BASE_URL}?id={no_pengajuan}"
+                            mgr_name_clean = mgr_name_full.split(" - ")[1].split(" (")[0]
+                            link_html = "Lihat Lampiran di bawah" if bukti_file else "-"
+                            
+                            # --- FORMAT EMAIL (COPY PASTE DARI KODINGAN FINAL KAMU) ---
+                            subject_email = f"Pengajuan Kasbon {no_pengajuan}"
                             email_body = f"""
                             <html>
                             <body style='font-family: Arial, sans-serif; line-height: 1.6;'>
-                                <p>Dear Bapak / Ibu <b>{mgr_clean}</b></p>
+                                <p>Dear Bapak / Ibu <b>{mgr_name_clean}</b></p>
                                 <p>Mohon approvalnya untuk pengajuan kasbon dengan data di bawah ini :</p>
                                 <table style='border-collapse: collapse; width: 100%;'>
-                                    <tr><td style='width: 200px;'><b>Nomor Pengajuan Kasbon</b></td><td>: {no_p}</td></tr>
+                                    <tr><td style='width: 200px;'><b>Nomor Pengajuan Kasbon</b></td><td>: {no_pengajuan}</td></tr>
                                     <tr><td><b>Tgl dan Jam Pengajuan</b></td><td>: {tgl_full}</td></tr>
-                                    <tr><td><b>Dibayarkan Kepada</b></td><td>: {nama_p} / {nip_p}</td></tr>
+                                    <tr><td><b>Dibayarkan Kepada</b></td><td>: {nama_penerima} / {nip}</td></tr>
                                     <tr><td><b>Departement</b></td><td>: {dept}</td></tr>
-                                    <tr><td><b>Senilai</b></td><td>: Rp {int(nom_r):,} ({final_terbilang})</td></tr>
-                                    <tr><td><b>Untuk Keperluan</b></td><td>: {kep}</td></tr>
+                                    <tr><td><b>Senilai</b></td><td>: Rp {int(nominal_raw):,} ({final_terbilang})</td></tr>
+                                    <tr><td><b>Untuk Keperluan</b></td><td>: {keperluan}</td></tr>
                                     <tr><td><b>Approval Pendukung</b></td><td>: {link_html}</td></tr>
                                     <tr><td><b>Janji Penyelesaian</b></td><td>: {janji_str}</td></tr>
                                 </table>
@@ -307,19 +319,20 @@ else:
                             </body>
                             </html>
                             """
-                            send_email_with_attachment(target_email, subject_email, email_body, bukti)
-
+                            target_email = manager_email_map[mgr_name_full]
+                            send_email_with_attachment(target_email, subject_email, email_body, bukti_file)
+                        
                         st.session_state.data_ringkasan = {
-                            'no_pengajuan': no_p, 'kode_store': kode_store, 'nama': nama_p, 'nip': nip_p,
-                            'dept': dept, 'nominal': nom_r, 'terbilang': final_t, 
-                            'keperluan': kep, 'janji': janji_str, 'manager': mgr_clean
+                            'no_pengajuan': no_pengajuan, 'kode_store': kode_store, 'nama': nama_penerima, 'nip': nip,
+                            'dept': dept, 'nominal': nominal_raw, 'terbilang': final_terbilang, 
+                            'keperluan': keperluan, 'janji': janji_str, 'manager': mgr_name_clean
                         }
                         st.session_state.submitted = True
                         st.session_state.show_errors = False
                         st.rerun()
-
                     except Exception as e: st.error(f"Error Sistem: {e}")
                 else:
-                    st.session_state.show_errors = True; st.rerun()
+                    st.session_state.show_errors = True
+                    st.rerun()
         
         except Exception as e: st.error("Gagal memuat database store/user.")
