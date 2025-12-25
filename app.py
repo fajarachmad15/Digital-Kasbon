@@ -120,15 +120,19 @@ if query_id:
         cell = sheet.find(query_id)
         row_data = sheet.row_values(cell.row)
         
-        # MAPPING DATABASE (SESUAI REQUEST)
-        # Index 14 (Kolom O) = Status Approval MGR
-        # Index 15 (Kolom P) = Verifikasi Cashier
-        # Index 16 (Kolom Q) = Alasan
-        status_mgr = row_data[14]
-        status_cashier = row_data[15] if len(row_data) > 15 else ""
-        reason_reject = row_data[16] if len(row_data) > 16 else "-"
+        # === MAPPING DATABASE BARU ===
+        # Index 14 (Kolom O) = Status_Approval_MGR
+        # Index 15 (Kolom P) = Reason_Reject_MGR
+        # Index 16 (Kolom Q) = Verifikasi_Cashier
+        # Index 17 (Kolom R) = Reason_Reject_Csr
+        
+        # Ambil data dengan aman (cek panjang list)
+        status_mgr = row_data[14] if len(row_data) > 14 else "Pending"
+        reason_mgr = row_data[15] if len(row_data) > 15 else ""
+        status_cashier = row_data[16] if len(row_data) > 16 else ""
+        reason_csr = row_data[17] if len(row_data) > 17 else ""
 
-        # Logika Judul & Status Saat Ini
+        # --- LOGIKA STATUS TAMPILAN ---
         if status_mgr == "Pending":
             judul_portal = "Portal Approval Manager"
             display_status = "PENDING (Waiting Manager)"
@@ -144,7 +148,7 @@ if query_id:
 
         st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
 
-        # LOGIN CREDENTIAL
+        # --- LOGIN CREDENTIAL (MANAGER / CASHIER) ---
         if not st.session_state.mgr_logged_in:
             st.subheader("🔐 Verifikasi Manager/Cashier")
             v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
@@ -161,7 +165,7 @@ if query_id:
                 else: st.warning("Cek kembali NIK & Password.")
             st.stop()
 
-        # TAMPILAN DATA RINCIAN
+        # --- TAMPILAN DATA RINCIAN ---
         st.info(f"### Rincian Pengajuan: {query_id}")
         c1, c2 = st.columns(2)
         with c1:
@@ -177,7 +181,7 @@ if query_id:
         st.write(f"**Status Saat Ini:** `{display_status}`")
         st.divider()
 
-        # --- LOGIKA UTAMA (PEMISAHAN PORTAL & UPDATE DB) ---
+        # --- LOGIKA PORTAL TERPISAH & UPDATE DATABASE ---
         
         # 1. POSISI: MANAGER PENDING
         if status_mgr == "Pending":
@@ -187,7 +191,9 @@ if query_id:
                 
                 # ACTION: APPROVE MANAGER
                 if b1.button("✓ APPROVE", use_container_width=True):
-                    sheet.update_cell(cell.row, 15, "APPROVED") # Update Kolom O
+                    # Update Kolom O (Index 15 di Gspread 1-based)
+                    sheet.update_cell(cell.row, 15, "APPROVED") 
+                    
                     # Kirim Email Notif ke Cashier
                     try:
                         cashier_info = row_data[12] 
@@ -206,18 +212,19 @@ if query_id:
                 # ACTION: REJECT MANAGER
                 if b2.button("✕ REJECT", use_container_width=True):
                     if not alasan: st.error("Harap isi alasan reject!"); st.stop()
-                    sheet.update_cell(cell.row, 15, "REJECTED") # Update Kolom O
-                    sheet.update_cell(cell.row, 17, alasan)    # Update Kolom Q (Alasan)
+                    # Update Kolom O (Status) & P (Reason)
+                    sheet.update_cell(cell.row, 15, "REJECTED") 
+                    sheet.update_cell(cell.row, 16, alasan)    
                     st.error("Pengajuan telah di-Reject."); st.rerun()
             
             else:
-                # Jika yang login bukan Manager
+                # Jika user bukan Manager, tampilkan status saja (Tanpa Error)
                 st.info("Menunggu Approval Manager")
 
         # 2. POSISI: MANAGER APPROVED -> MENUNGGU CASHIER
         elif status_mgr == "APPROVED":
             
-            # Jika Cashier Belum Verifikasi
+            # Jika Cashier Belum Verifikasi (Kolom Q Kosong/Pending)
             if status_cashier == "" or status_cashier == "Pending":
                 if st.session_state.user_role == "Senior Cashier":
                     # TAMPILAN CASHIER (SAMA PERSIS DENGAN MANAGER)
@@ -226,17 +233,19 @@ if query_id:
                     
                     # ACTION: APPROVE CASHIER
                     if k1.button("✓ VERIFIKASI APPROVE", use_container_width=True):
-                        sheet.update_cell(cell.row, 16, "APPROVED") # Update Kolom P
+                        # Update Kolom Q (Index 17)
+                        sheet.update_cell(cell.row, 17, "APPROVED") 
                         st.success("Verifikasi Berhasil. Status Selesai."); st.balloons(); st.rerun()
                     
                     # ACTION: REJECT CASHIER
                     if k2.button("✕ VERIFIKASI REJECT", use_container_width=True):
                         if not alasan_c: st.error("Harap isi alasan reject!"); st.stop()
-                        sheet.update_cell(cell.row, 16, "REJECTED") # Update Kolom P
-                        sheet.update_cell(cell.row, 17, alasan_c)   # Update Kolom Q
+                        # Update Kolom Q (Status) & R (Reason)
+                        sheet.update_cell(cell.row, 17, "REJECTED") 
+                        sheet.update_cell(cell.row, 18, alasan_c)   
                         st.error("Verifikasi Ditolak."); st.rerun()
                 else:
-                    # Jika yang login bukan Cashier (misal Manager cek status) -> TIDAK ADA ERROR
+                    # Jika user bukan Cashier (misal Manager cek status), tampilkan info saja (Tanpa Error "Akses Ditolak")
                     st.info("Menunggu Verifikasi Cashier")
 
             # Jika Cashier Sudah Approve
@@ -245,11 +254,11 @@ if query_id:
 
             # Jika Cashier Reject
             elif status_cashier == "REJECTED":
-                st.error(f"Status kasbon di rejek karena {reason_reject}")
+                st.error(f"Status kasbon di rejek karena {reason_csr}")
 
         # 3. POSISI: MANAGER REJECTED
         elif status_mgr == "REJECTED":
-             st.error(f"Status kasbon di rejek karena {reason_reject}")
+             st.error(f"Status kasbon di rejek karena {reason_mgr}")
 
     except Exception as e: st.error(f"Error Database: {e}")
     st.stop()
@@ -365,11 +374,12 @@ else:
                             final_t = terbilang(int(nom_r)).title() + " Rupiah"
                             link_db = "Terlampir di Email" if bukti else "-"
                             
-                            # UPDATE STRUKTUR DATA (3 KOLOM TERAKHIR: STATUS MGR, STATUS CASHIER, ALASAN)
+                            # === UPDATE STRUKTUR DATA (4 KOLOM TERAKHIR KOSONG UNTUK: O, P, Q, R) ===
+                            # O: Status MGR, P: Reason MGR, Q: Status CSR, R: Reason CSR
                             sheet.append_row([
                                 tgl_now.strftime("%Y-%m-%d %H:%M:%S"), no_p, kode_store, pic_email, 
                                 nama_p, nip, dept, nom_r, final_t, kep, link_db, 
-                                janji.strftime("%d/%m/%Y"), sc_f, mgr_f, "Pending", "", ""
+                                janji.strftime("%d/%m/%Y"), sc_f, mgr_f, "Pending", "", "", ""
                             ])
                             
                             mgr_clean = mgr_f.split(" - ")[1].split(" (")[0]
