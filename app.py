@@ -54,6 +54,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- LOGIKA LOGIN GOOGLE (WAJIB) ---
+# Bagian ini memastikan user harus login dulu sebelum melihat isi aplikasi
 if not st.experimental_user.is_logged_in:
     st.markdown("## 🌐 Kasbon Digital Petty Cash")
     st.info("Silakan login menggunakan akun Google Anda untuk melanjutkan.")
@@ -61,7 +62,7 @@ if not st.experimental_user.is_logged_in:
         st.login()
     st.stop()
 
-# Simpan email google
+# Simpan email google yang sedang login
 pic_email = st.experimental_user.email
 
 # --- 2. KONFIGURASI ---
