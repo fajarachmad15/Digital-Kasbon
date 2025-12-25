@@ -199,11 +199,40 @@ if query_id:
                         cashier_info = row_data[12] 
                         cashier_email = cashier_info.split("(")[1].split(")")[0]
                         cashier_name = cashier_info.split(" - ")[1].split(" (")[0]
+                        
+                        # Data untuk tabel email
+                        r_tgl = row_data[0]
+                        r_bayar = f"{row_data[4]} / {row_data[5]}"
+                        r_dept = row_data[6]
+                        r_nom = f"Rp {int(row_data[7]):,}"
+                        r_terbilang = row_data[8]
+                        r_kep = row_data[9]
+                        r_janji = row_data[11]
+                        # Gunakan data link jika ada, atau strip jika tidak ada (sesuai gambar)
+                        r_approve_supp = row_data[10] if row_data[10] not in ["-", ""] else "-"
+
+                        # REVISI EMAIL BODY (HTML TABLE)
                         email_msg = f"""
-                        Dear Bapak / Ibu {cashier_name}<br><br>
-                        Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVED</b> oleh Manager:<br><br>
-                        Nomor Pengajuan : {query_id}<br>
-                        Silahkan klik <a href='{BASE_URL}?id={query_id}'>link berikut</a> untuk melakukan verifikasi.
+                        <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
+                            <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {cashier_name}</div>
+                            
+                            <div style='margin-bottom: 10px;'>Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVE</b> oleh Manager:</div>
+                            
+                            <table style='border: none; border-collapse: collapse; width: 100%; max-width: 600px;'>
+                                <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {query_id}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Tgl dan Jam Pengajuan</td><td>: {r_tgl}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Dibayarkan Kepada</td><td>: {r_bayar}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Departement</td><td>: {r_dept}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Senilai</td><td>: {r_nom} ({r_terbilang})</td></tr>
+                                <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {r_kep}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: {r_approve_supp}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {r_janji}</td></tr>
+                            </table>
+                            
+                            <div style='margin-top: 15px; margin-bottom: 10px;'>
+                                Silahkan klik <a href='{BASE_URL}?id={query_id}' style='text-decoration: none; color: #0000EE;'>link berikut</a> untuk melanjutkan prosesnya.
+                            </div>
+                        </body></html>
                         """
                         send_email_with_attachment(cashier_email, f"Verifikasi Kasbon {query_id}", email_msg)
                     except: pass
@@ -212,7 +241,7 @@ if query_id:
                 # ACTION: REJECT MANAGER
                 if b2.button("✕ REJECT", use_container_width=True):
                     if not alasan: st.error("Harap isi alasan reject!"); st.stop()
-                    # Update Kolom O (Status) & P (Reason)
+                    # Update Kolom O (Status) & P (Reason) -> Sesuai permintaan kolom O-R
                     sheet.update_cell(cell.row, 15, "REJECTED") 
                     sheet.update_cell(cell.row, 16, alasan)    
                     st.error("Pengajuan telah di-Reject."); st.rerun()
@@ -233,14 +262,14 @@ if query_id:
                     
                     # ACTION: APPROVE CASHIER
                     if k1.button("✓ VERIFIKASI APPROVE", use_container_width=True):
-                        # Update Kolom Q (Index 17)
+                        # Update Kolom Q (Index 17) -> Sesuai permintaan kolom O-R
                         sheet.update_cell(cell.row, 17, "APPROVED") 
                         st.success("Verifikasi Berhasil. Status Selesai."); st.balloons(); st.rerun()
                     
                     # ACTION: REJECT CASHIER
                     if k2.button("✕ VERIFIKASI REJECT", use_container_width=True):
                         if not alasan_c: st.error("Harap isi alasan reject!"); st.stop()
-                        # Update Kolom Q (Status) & R (Reason)
+                        # Update Kolom Q (Status) & R (Reason) -> Sesuai permintaan kolom O-R
                         sheet.update_cell(cell.row, 17, "REJECTED") 
                         sheet.update_cell(cell.row, 18, alasan_c)   
                         st.error("Verifikasi Ditolak."); st.rerun()
