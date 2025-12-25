@@ -132,21 +132,8 @@ if query_id:
 
         st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
 
-        # LOGIN CREDENTIAL (MANAGER / CASHIER)
-        if not st.session_state.mgr_logged_in:
-            st.subheader("🔐 Verifikasi Manager/Cashier")
-            v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
-            v_pass = st.text_input("Password", type="password")
-            if st.button("Masuk & Verifikasi", type="primary", use_container_width=True):
-                if len(v_nik) == 6 and len(v_pass) >= 6:
-                    records = client.open_by_key(SPREADSHEET_ID).worksheet("DATABASE_USER").get_all_records()
-                    user = next((r for r in records if str(r['NIK']) == v_nik and str(r['Password']) == v_pass), None)
-                    if user: 
-                        st.session_state.mgr_logged_in = True
-                        st.rerun()
-                    else: st.error("NIK atau Password salah.")
-                else: st.warning("Cek kembali NIK & Password.")
-            st.stop()
+        # --- VERIFIKASI MANAGER/CASHIER DIHAPUS SESUAI REQUEST ---
+        # Langsung masuk ke Tampilan Data
 
         # TAMPILAN DATA
         st.info(f"### Rincian Pengajuan: {query_id}")
@@ -178,10 +165,10 @@ if query_id:
                     cashier_name = cashier_info.split(" - ")[1].split(" (")[0]
                     
                     email_msg = f"""
-                    Dear Bapak / Ibu {cashier_name}
-                    <br><br>
-                    Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVE</b> oleh Manager:
-                    <br><br>
+                    <html><body>
+                    <p>Dear Bapak / Ibu {cashier_name}</p>
+                    <p>Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVE</b> oleh Manager:</p>
+                    <p>
                     Nomor Pengajuan Kasbon : {query_id}<br>
                     Tgl dan Jam Pengajuan : {row_data[0]}<br>
                     Dibayarkan Kepada : {row_data[4]} / {row_data[5]}<br>
@@ -190,8 +177,9 @@ if query_id:
                     Untuk Keperluan : {row_data[9]}<br>
                     Approval Pendukung : {row_data[10]}<br>
                     Janji Penyelesaian : {row_data[11]}
-                    <br><br>
-                    Silahkan klik <a href='{BASE_URL}?id={query_id}'>link berikut</a> untuk melanjutkan prosesnya.
+                    </p>
+                    <p>Silahkan klik <a href='{BASE_URL}?id={query_id}'>link berikut</a> untuk melanjutkan prosesnya.</p>
+                    </body></html>
                     """
                     send_email_with_attachment(cashier_email, f"Verifikasi Kasbon {query_id}", email_msg)
                 except: pass
@@ -361,30 +349,8 @@ else:
                             app_link = f"{BASE_URL}?id={no_p}"
                             link_html = "Lihat Lampiran di bawah" if bukti else "-"
                             
-                            # EMAIL ISI TETAP SAMA (SESUAI REQUEST)
+                            # EMAIL ISI DIPERBAIKI (GABUNG JADI SATU PARAGRAF)
                             email_body = f"""
                             <html><body style='font-family: Arial, sans-serif; line-height: 1.6;'>
                                 <p>Dear Bapak / Ibu <b>{mgr_clean}</b></p>
-                                <p>Mohon approvalnya untuk pengajuan kasbon dengan data di bawah ini :</p>
-                                <table style='border-collapse: collapse; width: 100%;'>
-                                    <tr><td style='width: 200px;'><b>Nomor Pengajuan Kasbon</b></td><td>: {no_p}</td></tr>
-                                    <tr><td><b>Tgl dan Jam Pengajuan</b></td><td>: {tgl_full}</td></tr>
-                                    <tr><td><b>Dibayarkan Kepada</b></td><td>: {nama_p} / {nip}</td></tr>
-                                    <tr><td><b>Departement</b></td><td>: {dept}</td></tr>
-                                    <tr><td><b>Senilai</b></td><td>: Rp {int(nom_r):,} ({final_t})</td></tr>
-                                    <tr><td><b>Untuk Keperluan</b></td><td>: {kep}</td></tr>
-                                    <tr><td><b>Approval Pendukung</b></td><td>: {link_html}</td></tr>
-                                    <tr><td><b>Janji Penyelesaian</b></td><td>: {janji.strftime("%d/%m/%Y")}</td></tr>
-                                </table>
-                                <p>Silahkan klik <a href='{app_link}'><b>link berikut</b></a> untuk melanjutkan prosesnya</p>
-                                <p>Terima Kasih</p>
-                            </body></html>
-                            """
-                            send_email_with_attachment(mgr_map[mgr_f], f"Pengajuan Kasbon {no_p}", email_body, bukti)
-                        
-                        st.session_state.data_ringkasan = {'no_pengajuan': no_p, 'kode_store': kode_store, 'nama': nama_p, 'nip': nip, 'dept': dept, 'nominal': nom_r, 'terbilang': final_t, 'keperluan': kep, 'janji': janji.strftime("%d/%m/%Y")}
-                        st.session_state.submitted = True; st.session_state.show_errors = False; st.rerun()
-                    except Exception as e: st.error(f"Error Sistem: {e}")
-                else:
-                    st.session_state.show_errors = True; st.rerun()
-        except Exception as e: st.error(f"Database Error: {e}")
+                                <p>Mohon approvalnya untuk pengajuan kasbon dengan
