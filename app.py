@@ -54,7 +54,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- LOGIKA LOGIN GOOGLE (WAJIB) ---
-# Bagian ini memastikan user harus login dulu sebelum melihat isi aplikasi
 if not st.experimental_user.is_logged_in:
     st.markdown("## 🌐 Kasbon Digital Petty Cash")
     st.info("Silakan login menggunakan akun Google Anda untuk melanjutkan.")
@@ -109,6 +108,7 @@ if 'submitted' not in st.session_state: st.session_state.submitted = False
 if 'data_ringkasan' not in st.session_state: st.session_state.data_ringkasan = {}
 if 'show_errors' not in st.session_state: st.session_state.show_errors = False
 if 'mgr_logged_in' not in st.session_state: st.session_state.mgr_logged_in = False
+if 'user_role' not in st.session_state: st.session_state.user_role = "" # New: Simpan Role User
 
 # --- 4. TAMPILAN APPROVAL (MANAGER & CASHIER) ---
 query_id = st.query_params.get("id")
@@ -140,10 +140,11 @@ if query_id:
             if st.button("Masuk & Verifikasi", type="primary", use_container_width=True):
                 if len(v_nik) == 6 and len(v_pass) >= 6:
                     records = client.open_by_key(SPREADSHEET_ID).worksheet("DATABASE_USER").get_all_records()
-                    # PERBAIKAN: Menambahkan .zfill(6) untuk memastikan NIK dari database selalu 6 digit (mengatasi 0 di depan yg hilang)
+                    # LOGIKA FIX NIK (zfill) & GET ROLE
                     user = next((r for r in records if str(r['NIK']).zfill(6) == v_nik and str(r['Password']) == v_pass), None)
                     if user: 
                         st.session_state.mgr_logged_in = True
+                        st.session_state.user_role = user['Role'] # SIMPAN ROLE
                         st.rerun()
                     else: st.error("NIK atau Password salah.")
                 else: st.warning("Cek kembali NIK & Password.")
@@ -162,11 +163,27 @@ if query_id:
             st.write(f"**Janji:** {row_data[11]}")
         
         st.write(f"**Keperluan:** {row_data[9]}")
-        st.write(f"**Status Saat Ini:** `{status_now}`")
+        
+        # LOGIKA DISPLAY STATUS (Custom untuk REJECTED)
+        if status_now == "REJECTED":
+            # Ambil alasan dari kolom ke-16 (Index 15) jika ada
+            reason_reject = row_data[15] if len(row_data) > 15 else "-"
+            st.write(f"**Status Saat Ini:** `{status_now}`")
+            st.error(f"Status kasbon di rejek karena {reason_reject}")
+        else:
+            st.write(f"**Status Saat Ini:** `{status_now}`")
+            
         st.divider()
 
-        # --- LOGIKA MANAGER (PENDING) ---
+        # --- LOGIKA PORTAL TERPISAH & ACTIONS ---
+        
+        # 1. STATUS PENDING -> KHUSUS MANAGER
         if status_now == "Pending":
+            # Cek Role
+            if st.session_state.user_role != "Manager":
+                st.error("⛔ Akses Ditolak. Halaman ini khusus untuk Manager.")
+                st.stop()
+
             alasan = st.text_area("Alasan Reject (Wajib diisi jika Reject)", placeholder="Contoh: Nominal terlalu besar...")
             
             b1, b2 = st.columns(2)
@@ -174,7 +191,7 @@ if query_id:
                 sheet.update_cell(cell.row, 15, "APPROVED")
                 # KIRIM EMAIL KE CASHIER (APPROVE)
                 try:
-                    cashier_info = row_data[12] # NIK - Nama (Email)
+                    cashier_info = row_data[12] 
                     cashier_email = cashier_info.split("(")[1].split(")")[0]
                     cashier_name = cashier_info.split(" - ")[1].split(" (")[0]
                     
@@ -201,7 +218,10 @@ if query_id:
 
             if b2.button("✕ REJECT", use_container_width=True):
                 if not alasan: st.error("Harap isi alasan reject!"); st.stop()
+                # UPDATE STATUS & REASON (Kolom 15=Status, 16=Reason)
                 sheet.update_cell(cell.row, 15, "REJECTED")
+                sheet.update_cell(cell.row, 16, alasan) 
+                
                 # KIRIM EMAIL KE CASHIER (REJECT)
                 try:
                     cashier_info = row_data[12]
@@ -225,17 +245,23 @@ if query_id:
                 
                 st.error("Pengajuan telah di-Reject."); st.rerun()
 
-        # --- LOGIKA CASHIER (APPROVED) -> STEP 2 ---
+        # 2. STATUS APPROVED -> KHUSUS SENIOR CASHIER
         elif status_now == "APPROVED":
-            st.info("Menunggu Verifikasi Pencairan Dana oleh Cashier.")
-            if st.button("✓ KONFIRMASI PENCAIRAN DANA", use_container_width=True):
-                sheet.update_cell(cell.row, 15, "COMPLETED")
-                st.success("Dana Telah Dicairkan. Status Selesai.")
-                st.balloons()
-                st.rerun()
+            # Cek Role
+            if st.session_state.user_role != "Senior Cashier":
+                st.error("⛔ Akses Ditolak. Halaman ini khusus untuk Senior Cashier.")
+                st.stop()
+            
+            # TAMPILAN BARU SESUAI REQUEST (TOMBOL DIHAPUS)
+            st.info("Status kasbon disetujui")
         
+        # 3. STATUS REJECTED / OTHER
+        elif status_now == "REJECTED":
+            # Pesan error sudah ditampilkan di bagian Header Data di atas
+            pass
+
         else:
-            st.warning(f"Pengajuan ini sudah selesai/ditolak: {status_now}")
+            st.warning(f"Pengajuan ini sudah selesai: {status_now}")
 
     except Exception as e: st.error(f"Error Database: {e}")
     st.stop()
