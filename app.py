@@ -9,7 +9,7 @@ from email import encoders
 from email.utils import formataddr
 from oauth2client.service_account import ServiceAccountCredentials
 
-# --- 1. SETTING HALAMAN & CSS ---
+# --- 1. SETTING HALAMAN & CSS (UI FINAL) ---
 st.set_page_config(page_title="Kasbon Digital Petty Cash", layout="centered")
 
 st.markdown("""
@@ -35,7 +35,7 @@ st.markdown("""
         display: block;
     }
 
-    /* STYLING TOMBOL APPROVAL TRANSPARAN */
+    /* STYLING TOMBOL TRANSPARAN */
     .stButton > button {
         border-radius: 8px;
         font-weight: 600;
@@ -52,19 +52,19 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. LOGIKA LOGIN GOOGLE (NATIVE) ---
+# --- 2. LOGIKA LOGIN GOOGLE NATIVE (PEMBARUAN UTAMA) ---
 if not st.experimental_user.is_logged_in:
     st.markdown("## 🌐 Kasbon Digital Petty Cash")
     st.info("Silakan login menggunakan akun Google Anda untuk melanjutkan.")
-    # Tombol ini akan memanggil fitur login bawaan Streamlit
+    # Tombol Login Native
     if st.button("Sign in with Google", type="primary", use_container_width=True):
         st.login()
     st.stop()
 
-# AMBIL EMAIL ASLI DARI GOOGLE (BUKAN KETIKAN)
+# AMBIL EMAIL ASLI DARI GOOGLE
 pic_email = st.experimental_user.email
 
-# --- 3. KONFIGURASI LAINNYA ---
+# --- 3. KONFIGURASI ---
 SENDER_EMAIL = "achmad.setiawan@kawanlamacorp.com"
 APP_PASSWORD = st.secrets["APP_PASSWORD"] 
 BASE_URL = "https://digital-kasbon-ahi.streamlit.app" 
@@ -135,8 +135,11 @@ if query_id:
         c1, c2 = st.columns(2)
         with c1:
             st.write(f"**Tgl:** {row_data[0]}"); st.write(f"**Dibayarkan:** {row_data[4]} / {row_data[5]}")
+            st.write(f"**Dept:** {row_data[6]}")
         with c2:
-            st.write(f"**Nominal:** Rp {int(row_data[7]):,}"); st.write(f"**Terbilang:** {row_data[8]}")
+            st.write(f"**Nominal:** Rp {int(row_data[7]):,}")
+            st.write(f"**Terbilang:** {row_data[8]}")
+            st.write(f"**Janji:** {row_data[11]}")
         st.write(f"**Keperluan:** {row_data[9]} | **Status:** `{row_data[14]}`")
         st.divider()
 
@@ -160,7 +163,7 @@ if st.session_state.submitted:
     if c2.button("Logout Google", use_container_width=True): st.logout()
 
 else:
-    # Verifikasi Email Asli di Layar
+    # Tampilkan Email Asli di Atas (Verifikasi Visual)
     st.caption(f"Logged in as: **{pic_email}**") 
     
     st.subheader("📍 Identifikasi Lokasi")
@@ -182,7 +185,7 @@ else:
             st.markdown('<div class="label-container"><span class="label-text">Email Request</span></div>', unsafe_allow_html=True)
             st.text_input("", value=pic_email, disabled=True)
 
-            # FORM INPUT LENGKAP DENGAN VALIDASI MERAH
+            # FORM INPUT LENGKAP DENGAN VALIDASI MERAH (UI SUPER APP)
             err_nama = '<span class="error-tag">Harap dilengkapi</span>' if st.session_state.show_errors and not st.session_state.get('nama_val') else ''
             st.markdown(f'<div class="label-container"><span class="label-text">Dibayarkan Kepada</span>{err_nama}</div>', unsafe_allow_html=True)
             nama_p = st.text_input("", key="nama_val")
@@ -226,6 +229,7 @@ else:
             st.divider()
 
             if st.button("Kirim Pengajuan", type="primary", use_container_width=True):
+                # Validasi Lengkap
                 is_valid = nama_p and len(nip_p)==6 and nom_r.isdigit() and kep and dept!="-" and mgr_f!="-" and sc_f!="-"
                 
                 if is_valid:
