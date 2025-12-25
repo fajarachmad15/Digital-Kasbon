@@ -200,7 +200,7 @@ if query_id:
                         cashier_email = cashier_info.split("(")[1].split(")")[0]
                         cashier_name = cashier_info.split(" - ")[1].split(" (")[0]
                         
-                        # === PERBAIKAN FORMAT EMAIL KE CASHIER ===
+                        # === PERBAIKAN FORMAT EMAIL KE CASHIER (SESUAI IMAGE FAFAC9.PNG) ===
                         r_tgl = row_data[0]
                         r_bayar = f"{row_data[4]} / {row_data[5]}"
                         r_dept = row_data[6]
@@ -230,6 +230,8 @@ if query_id:
                             <div style='margin-top: 15px; margin-bottom: 10px;'>
                                 Silahkan klik <a href='{BASE_URL}?id={query_id}' style='text-decoration: none; color: #0000EE;'>link berikut</a> untuk melanjutkan prosesnya.
                             </div>
+                            
+                            <div>Terima Kasih</div>
                         </body></html>
                         """
                         send_email_with_attachment(cashier_email, f"Verifikasi Kasbon {query_id}", email_msg)
