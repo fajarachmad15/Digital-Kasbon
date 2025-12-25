@@ -52,18 +52,19 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. LOGIKA LOGIN GOOGLE (NATIVE & WAJIB) ---
+# --- 2. LOGIKA LOGIN GOOGLE (NATIVE) ---
 if not st.experimental_user.is_logged_in:
     st.markdown("## 🌐 Kasbon Digital Petty Cash")
     st.info("Silakan login menggunakan akun Google Anda untuk melanjutkan.")
+    # Tombol ini akan memanggil fitur login bawaan Streamlit
     if st.button("Sign in with Google", type="primary", use_container_width=True):
         st.login()
     st.stop()
 
-# Ambil email asli dari Google
+# AMBIL EMAIL ASLI DARI GOOGLE (BUKAN KETIKAN)
 pic_email = st.experimental_user.email
 
-# --- 3. KONFIGURASI ---
+# --- 3. KONFIGURASI LAINNYA ---
 SENDER_EMAIL = "achmad.setiawan@kawanlamacorp.com"
 APP_PASSWORD = st.secrets["APP_PASSWORD"] 
 BASE_URL = "https://digital-kasbon-ahi.streamlit.app" 
@@ -134,11 +135,8 @@ if query_id:
         c1, c2 = st.columns(2)
         with c1:
             st.write(f"**Tgl:** {row_data[0]}"); st.write(f"**Dibayarkan:** {row_data[4]} / {row_data[5]}")
-            st.write(f"**Dept:** {row_data[6]}")
         with c2:
-            st.write(f"**Nominal:** Rp {int(row_data[7]):,}")
-            st.write(f"**Terbilang:** {row_data[8]}") # FITUR TERBILANG
-            st.write(f"**Janji:** {row_data[11]}")
+            st.write(f"**Nominal:** Rp {int(row_data[7]):,}"); st.write(f"**Terbilang:** {row_data[8]}")
         st.write(f"**Keperluan:** {row_data[9]} | **Status:** `{row_data[14]}`")
         st.divider()
 
@@ -162,7 +160,7 @@ if st.session_state.submitted:
     if c2.button("Logout Google", use_container_width=True): st.logout()
 
 else:
-    # Tampilkan email asli di atas
+    # Verifikasi Email Asli di Layar
     st.caption(f"Logged in as: **{pic_email}**") 
     
     st.subheader("📍 Identifikasi Lokasi")
@@ -215,7 +213,6 @@ else:
             managers_db = [f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})" for u in records if str(u['Kode_Store']) == kode_store and u['Role'] == 'Manager']
             cashiers_db = [f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})" for u in records if str(u['Kode_Store']) == kode_store and u['Role'] == 'Senior Cashier']
             
-            # MAPPING EMAIL MANAGER UNTUK PENGIRIMAN
             mgr_email_map = {f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})": u['Email'] for u in records if str(u['Kode_Store']) == kode_store and u['Role'] == 'Manager'}
 
             err_mgr = '<span class="error-tag">Pilih Manager</span>' if st.session_state.show_errors and st.session_state.get('mgr_val') == "-" else ''
@@ -229,7 +226,6 @@ else:
             st.divider()
 
             if st.button("Kirim Pengajuan", type="primary", use_container_width=True):
-                # Validasi Lengkap (Super App Logic)
                 is_valid = nama_p and len(nip_p)==6 and nom_r.isdigit() and kep and dept!="-" and mgr_f!="-" and sc_f!="-"
                 
                 if is_valid:
@@ -252,7 +248,6 @@ else:
                             janji_str, sc_f, mgr_f, "Pending"
                         ])
                         
-                        # KIRIM EMAIL KE MANAGER
                         app_link = f"{BASE_URL}?id={no_p}"
                         mgr_clean = mgr_f.split(" - ")[1].split(" (")[0]
                         target_email = mgr_email_map.get(mgr_f)
