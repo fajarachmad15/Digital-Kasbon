@@ -3,8 +3,8 @@ import datetime
 import gspread
 import io
 import smtplib
-import requests  # LIBRARY WAJIB
-import base64    # LIBRARY WAJIB
+import requests  # LIBRARY WAJIB (BARU)
+import base64    # LIBRARY WAJIB (BARU)
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -72,11 +72,10 @@ APP_PASSWORD = st.secrets["APP_PASSWORD"]
 BASE_URL = "https://digital-kasbon-ahi.streamlit.app" 
 SPREADSHEET_ID = "1TGsCKhBC0E0hup6RGVbGrpB6ds5Jdrp5tNlfrBORzaI"
 
-# --- CONFIG BARU ---
-# Pastikan ini URL Deployment TERBARU Anda
-APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHRNud5-Stn_1WoVwTyodXRzsVH7ApgQAActIn6JPZdaXm2bHtcd4wZjB8BXa2i8Pu/exec"
+# --- CONFIG BARU UNTUK UPLOAD (PASTE URL BARU DARI 'DEPLOYMENT BARU' DI SINI) ---
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylCNQsYQCIvO2qWtEUIq7gPufCgx4U5sbPasGVMGTIbaZhRFZBnpcMiHMlB2CpsEpj/exec" 
 DRIVE_FOLDER_ID = "1H6aZbRbJ7Kw7zdTqkIED1tQUrBR43dBr"
-# -------------------
+# -------------------------------------------------------------------------------
 
 WIB = datetime.timezone(datetime.timedelta(hours=7))
 
@@ -249,7 +248,7 @@ if query_id:
                 if st.button("Kirim Laporan Realisasi", type="primary", use_container_width=True):
                     if bukti_real and uang_digunakan >= 0:
                         try:
-                            # --- MODIFIKASI: UPLOAD KE DRIVE VIA SCRIPT ---
+                            # --- MODIFIKASI: UPLOAD REALISASI VIA SCRIPT ---
                             link_bukti = "Lampiran Ada (File/Foto)"
                             if bukti_real:
                                 try:
@@ -267,21 +266,19 @@ if query_id:
                                     }
                                     with st.spinner("Mengupload Bukti Realisasi..."):
                                         res = requests.post(APPS_SCRIPT_URL, json=pl)
-                                        # CEK ERROR JSON
+                                        # Handle Error JSON
                                         try:
                                             rj = res.json()
+                                            if rj.get("status") == "success":
+                                                link_bukti = rj.get("url")
+                                            else:
+                                                st.warning(f"Gagal upload ke Drive: {rj.get('message')}")
                                         except ValueError:
-                                            st.error("Server Google menolak akses. Cek Deployment 'Who has access' harus 'Anyone'.")
-                                            st.write("Respon Server:", res.text) # Tampilkan respon asli
+                                            st.error("Server Google menolak akses. PASTIKAN SUDAH 'NEW DEPLOYMENT' dengan akses 'ANYONE'.")
                                             st.stop()
-
-                                        if rj.get("status") == "success":
-                                            link_bukti = rj.get("url")
-                                        else:
-                                            st.warning(f"Gagal upload ke Drive: {rj.get('message')}")
                                 except Exception as e:
                                     st.warning(f"Error upload drive: {e}")
-                            # ----------------------------------------------
+                            # -----------------------------------------------
                             
                             # Update DB
                             tgl_real = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
@@ -600,18 +597,16 @@ else:
                                     
                                     with st.spinner("Mengupload ke Drive..."):
                                         response = requests.post(APPS_SCRIPT_URL, json=payload)
-                                        # CEK ERROR JSON
+                                        # Handle Error JSON
                                         try:
                                             res_json = response.json()
+                                            if res_json.get("status") == "success":
+                                                link_drive = res_json.get("url")
+                                            else:
+                                                st.error(f"Gagal Upload: {res_json.get('message')}")
+                                                st.stop()
                                         except ValueError:
-                                            st.error("Server Google menolak akses. Cek Deployment 'Who has access' harus 'Anyone'.")
-                                            st.write("Respon Server:", response.text) # Tampilkan respon asli
-                                            st.stop()
-                                        
-                                        if res_json.get("status") == "success":
-                                            link_drive = res_json.get("url")
-                                        else:
-                                            st.error(f"Gagal Upload: {res_json.get('message')}")
+                                            st.error("Server Google menolak akses. PASTIKAN SUDAH 'NEW DEPLOYMENT' dengan akses 'ANYONE'.")
                                             st.stop()
                                         
                                 except Exception as e:
