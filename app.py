@@ -158,11 +158,20 @@ if query_id:
         r_janji = row_data[11]
         
         # Status Approval Existing
-        status_mgr = row_data[15] if len(row_data) > 15 else "Pending"
-        status_cashier = row_data[18] if len(row_data) > 18 else ""
+        # O=15, P=16, Q=17, R=18 (Manager)
+        status_mgr = row_data[16] if len(row_data) > 16 else "Pending" # Index 16 di Python = Col Q (17) di Excel? Tunggu, Python 0-based.
+        # Check indeks: A=0, ... O=14, P=15, Q=16, R=17.
+        # KOREKSI INDEKS SESUAI PERMINTAAN DATABASE:
+        # P = 15 (Indeks 15) -> NIP
+        # Q = 16 (Indeks 16) -> Status Approval
+        # R = 17 (Indeks 17) -> Reason
+        status_mgr = row_data[16] if len(row_data) > 16 else "Pending" 
 
-        # Mapping Data Baru (Requester Flow) - Kolom U, V, W, X, Y
-        status_terima = row_data[20] if len(row_data) > 20 else ""
+        # S=18, T=19, U=20, V=21 (Cashier)
+        status_cashier = row_data[20] if len(row_data) > 20 else ""
+
+        # W=22, X=23, Y=24 (Uang Diterima)
+        status_terima = row_data[24] if len(row_data) > 24 else ""
         
         # --- LOGIKA TAMPILAN REQUESTER (TANPA LOGIN) ---
         if query_mode == "terima" or query_mode == "realisasi":
@@ -195,28 +204,45 @@ if query_id:
                     st.stop()
                 
                 # Cek jika sudah pernah konfirmasi
-                if status_terima == "Sudah Diterima":
-                    st.success(f"✅ Uang telah dikonfirmasi diterima pada {row_data[21] if len(row_data)>21 else ''}")
+                if status_terima == "Sudah diterima":
+                    # W=22, X=23, Y=24
+                    tgl_terima_db = row_data[22] if len(row_data) > 22 else ""
+                    st.success(f"✅ Uang telah dikonfirmasi diterima pada {tgl_terima_db}")
                     st.stop()
 
-                st.write("Silakan klik tombol di bawah jika uang kasbon fisik telah Anda terima.")
+                st.write("Silakan masukan NIP dan klik tombol di bawah jika uang kasbon fisik telah Anda terima.")
+                
+                # INPUT NIP (VALIDASI)
+                nip_verif = st.text_input("Masukkan NIP Anda (Tanpa Password)", max_chars=6)
+
                 if st.button("Konfirmasi uang sudah diterima dan sesuai", type="primary", use_container_width=True):
-                    # Update DB: Col U (21) Status, Col V (22) Timestamp
-                    tgl_terima = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
-                    sheet.update_cell(cell.row, 21, "Sudah Diterima")
-                    sheet.update_cell(cell.row, 22, tgl_terima)
-                    st.success("Konfirmasi Berhasil!"); st.balloons(); st.rerun()
+                    if nip_verif == r_nip:
+                        # Update DB: 
+                        # W (23) Timestamp
+                        # X (24) NIP
+                        # Y (25) Status_Uang
+                        tgl_terima = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
+                        
+                        sheet.update_cell(cell.row, 23, tgl_terima)
+                        sheet.update_cell(cell.row, 24, nip_verif)
+                        sheet.update_cell(cell.row, 25, "Sudah diterima")
+                        
+                        st.success("Konfirmasi Berhasil!"); st.balloons(); st.rerun()
+                    else:
+                        st.error("⛔ NIP tidak sesuai dengan data pengajuan!")
 
             # --- B. PORTAL REALISASI ---
             elif query_mode == "realisasi":
                 # Validasi: Harus sudah terima uang
-                if status_terima != "Sudah Diterima":
+                if status_terima != "Sudah diterima":
                     st.error("⚠️ Harap lakukan konfirmasi 'Uang Diterima' terlebih dahulu pada link sebelumnya.")
                     st.stop()
                 
-                # Cek jika sudah realisasi
-                status_real = row_data[24] if len(row_data) > 24 else ""
-                if status_real == "Completed":
+                # Cek jika sudah realisasi (AI = 35)
+                # Z=25 (Indeks), AI=34 (Indeks)
+                # Z=26, AA=27, AB=28, AC=29, AD=30, AE=31, AF=32, AG=33, AH=34, AI=35
+                status_real = row_data[34] if len(row_data) > 34 else ""
+                if status_real == "Terrealisasi":
                     st.success("✅ Laporan realisasi sudah dikirim.")
                     st.stop()
 
@@ -227,9 +253,10 @@ if query_id:
                 # Menggunakan step=1 agar integer, tombol disembunyikan via CSS di atas
                 uang_digunakan = st.number_input("", min_value=0, step=1, label_visibility="collapsed")
                 
-                # Teks Terbilang di bawah input
+                txt_terbilang_belanja = "Nol Rupiah"
                 if uang_digunakan > 0:
-                    st.caption(f"*{terbilang(uang_digunakan).title()} Rupiah*")
+                    txt_terbilang_belanja = terbilang(uang_digunakan).title() + " Rupiah"
+                    st.caption(f"*{txt_terbilang_belanja}*")
                 else:
                     st.caption("*Nol Rupiah*")
 
@@ -269,53 +296,76 @@ if query_id:
                 opsi_b = st.radio("Metode Lampiran:", ["Upload File", "Kamera"])
                 bukti_real = st.file_uploader("Upload Foto", type=['png','jpg','jpeg','pdf']) if opsi_b == "Upload File" else st.camera_input("Ambil Foto")
 
+                # INPUT NIP (VALIDASI)
+                st.markdown("---")
+                nip_verif_real = st.text_input("Masukkan NIP Anda (Tanpa Password) untuk Submit", max_chars=6)
+
                 if st.button("Kirim Laporan Realisasi", type="primary", use_container_width=True):
                     if bukti_real and uang_digunakan >= 0:
-                        try:
-                            # --- MODIFIKASI: UPLOAD REALISASI VIA SCRIPT ---
-                            link_bukti = "Lampiran Ada (File/Foto)"
-                            if bukti_real:
-                                try:
-                                    f_type = bukti_real.type
-                                    f_ext = f_type.split("/")[-1]
-                                    # NAMA FILE DIGANTI SESUAI REQUEST
-                                    f_name = f"Lampiran_Realisasi_{query_id}.{f_ext}"
-                                    f_content = bukti_real.getvalue()
-                                    f_b64 = base64.b64encode(f_content).decode('utf-8')
-                                    
-                                    pl = {
-                                        "filename": f_name,
-                                        "filedata": f_b64,
-                                        "mimetype": f_type,
-                                        "folderId": DRIVE_FOLDER_ID
-                                    }
-                                    with st.spinner("Mengupload Bukti Realisasi..."):
-                                        res = requests.post(APPS_SCRIPT_URL, json=pl)
-                                        # Handle Error JSON
-                                        try:
-                                            rj = res.json()
-                                            if rj.get("status") == "success":
-                                                link_bukti = rj.get("url")
-                                            else:
-                                                st.warning(f"Gagal upload ke Drive: {rj.get('message')}")
-                                        except ValueError:
-                                            st.error("Server Google menolak akses. PASTIKAN SUDAH 'NEW DEPLOYMENT' dengan akses 'ANYONE'.")
-                                            st.stop()
-                                except Exception as e:
-                                    st.warning(f"Error upload drive: {e}")
-                            # -----------------------------------------------
-                            
-                            # Update DB
-                            tgl_real = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
-                            
-                            sheet.update_cell(cell.row, 23, uang_digunakan)
-                            sheet.update_cell(cell.row, 24, link_bukti)
-                            sheet.update_cell(cell.row, 25, "Completed")
-                            sheet.update_cell(cell.row, 26, tgl_real)
-                            
-                            st.success("Realisasi Berhasil Disimpan!"); st.balloons(); st.rerun()
-                        except Exception as e:
-                            st.error(f"Gagal menyimpan: {e}")
+                        if nip_verif_real == r_nip:
+                            try:
+                                # --- MODIFIKASI: UPLOAD REALISASI VIA SCRIPT ---
+                                link_bukti = "Lampiran Ada (File/Foto)"
+                                if bukti_real:
+                                    try:
+                                        f_type = bukti_real.type
+                                        f_ext = f_type.split("/")[-1]
+                                        # NAMA FILE DIGANTI SESUAI REQUEST
+                                        f_name = f"Lampiran_Realisasi_{query_id}.{f_ext}"
+                                        f_content = bukti_real.getvalue()
+                                        f_b64 = base64.b64encode(f_content).decode('utf-8')
+                                        
+                                        pl = {
+                                            "filename": f_name,
+                                            "filedata": f_b64,
+                                            "mimetype": f_type,
+                                            "folderId": DRIVE_FOLDER_ID
+                                        }
+                                        with st.spinner("Mengupload Bukti Realisasi..."):
+                                            res = requests.post(APPS_SCRIPT_URL, json=pl)
+                                            # Handle Error JSON
+                                            try:
+                                                rj = res.json()
+                                                if rj.get("status") == "success":
+                                                    link_bukti = rj.get("url")
+                                                else:
+                                                    st.warning(f"Gagal upload ke Drive: {rj.get('message')}")
+                                            except ValueError:
+                                                st.error("Server Google menolak akses. PASTIKAN SUDAH 'NEW DEPLOYMENT' dengan akses 'ANYONE'.")
+                                                st.stop()
+                                    except Exception as e:
+                                        st.warning(f"Error upload drive: {e}")
+                                # -----------------------------------------------
+                                
+                                # Update DB (Kolom Z - AI)
+                                tgl_real = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
+                                
+                                # Z: Timestamp
+                                sheet.update_cell(cell.row, 26, tgl_real)
+                                # AA: NIP
+                                sheet.update_cell(cell.row, 27, nip_verif_real)
+                                # AB: Nominal Pembelanjaan
+                                sheet.update_cell(cell.row, 28, uang_digunakan)
+                                # AC: Terbilang
+                                sheet.update_cell(cell.row, 29, txt_terbilang_belanja)
+                                # AD: Uang Dikembalikan
+                                sheet.update_cell(cell.row, 30, val_kembali)
+                                # AE: Terbilang
+                                sheet.update_cell(cell.row, 31, txt_kembali)
+                                # AF: Uang Diterima
+                                sheet.update_cell(cell.row, 32, val_terima)
+                                # AG: Terbilang
+                                sheet.update_cell(cell.row, 33, txt_terima)
+                                # AH: Bukti Lampiran
+                                sheet.update_cell(cell.row, 34, link_bukti)
+                                # AI: Status Realisasi
+                                sheet.update_cell(cell.row, 35, "Terrealisasi")
+                                
+                                st.success("Realisasi Berhasil Disimpan!"); st.balloons(); st.rerun()
+                            except Exception as e:
+                                st.error(f"Gagal menyimpan: {e}")
+                        else:
+                            st.error("⛔ NIP tidak sesuai dengan data pengajuan!")
                     else:
                         st.error("⚠️ Harap lengkapi bukti lampiran.")
 
@@ -324,9 +374,11 @@ if query_id:
         # --- LOGIKA EXISTING (MANAGER & CASHIER) ---
         # --- (Hanya jalan jika tidak ada parameter mode) ---
 
-        # Ambil ulang data reason (karena variabel di atas scope-nya global script)
-        reason_mgr = row_data[16] if len(row_data) > 16 else ""
-        reason_csr = row_data[19] if len(row_data) > 19 else ""
+        # Ambil ulang data reason
+        # R=17 (Indeks 17) -> Reason Reject MGR
+        # V=21 (Indeks 21) -> Reason Reject Cashier
+        reason_mgr = row_data[17] if len(row_data) > 17 else ""
+        reason_csr = row_data[21] if len(row_data) > 21 else ""
 
         if status_mgr == "Pending":
             judul_portal = "Portal Approval Manager"
@@ -390,8 +442,12 @@ if query_id:
                 alasan = st.text_area("Alasan Reject (Wajib diisi jika Reject)", placeholder="Contoh: Nominal terlalu besar...")
                 b1, b2 = st.columns(2)
                 if b1.button("✓ APPROVE", use_container_width=True):
-                    sheet.update_cell(cell.row, 15, st.session_state.user_nik) 
-                    sheet.update_cell(cell.row, 16, "APPROVED") 
+                    tgl_approval = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
+                    # O=15, P=16, Q=17, R=18
+                    sheet.update_cell(cell.row, 15, tgl_approval) 
+                    sheet.update_cell(cell.row, 16, st.session_state.user_nik) 
+                    sheet.update_cell(cell.row, 17, "APPROVED") 
+                    sheet.update_cell(cell.row, 18, "-") 
                     try:
                         cashier_info = row_data[12] 
                         cashier_email = cashier_info.split("(")[1].split(")")[0]
@@ -423,9 +479,11 @@ if query_id:
 
                 if b2.button("✕ REJECT", use_container_width=True):
                     if not alasan: st.error("Harap isi alasan reject!"); st.stop()
-                    sheet.update_cell(cell.row, 15, st.session_state.user_nik)
-                    sheet.update_cell(cell.row, 16, "REJECTED") 
-                    sheet.update_cell(cell.row, 17, alasan)    
+                    tgl_approval = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
+                    sheet.update_cell(cell.row, 15, tgl_approval) 
+                    sheet.update_cell(cell.row, 16, st.session_state.user_nik)
+                    sheet.update_cell(cell.row, 17, "REJECTED") 
+                    sheet.update_cell(cell.row, 18, alasan)    
                     st.error("Pengajuan telah di-Reject."); st.rerun()
             else:
                 st.info("Menunggu Approval Manager")
@@ -437,9 +495,12 @@ if query_id:
                     k1, k2 = st.columns(2)
                     
                     if k1.button("✓ VERIFIKASI APPROVE", use_container_width=True):
-                        # 1. Update DB Cashier
-                        sheet.update_cell(cell.row, 18, st.session_state.user_nik)
-                        sheet.update_cell(cell.row, 19, "APPROVED")
+                        # 1. Update DB Cashier (S-V)
+                        tgl_verif = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
+                        sheet.update_cell(cell.row, 19, tgl_verif) # S
+                        sheet.update_cell(cell.row, 20, st.session_state.user_nik) # T
+                        sheet.update_cell(cell.row, 21, "APPROVED") # U
+                        sheet.update_cell(cell.row, 22, "-") # V
                         
                         # 2. KIRIM EMAIL KE REQUESTER (Permintaan Baru)
                         try:
@@ -483,9 +544,11 @@ if query_id:
                     
                     if k2.button("✕ VERIFIKASI REJECT", use_container_width=True):
                         if not alasan_c: st.error("Harap isi alasan reject!"); st.stop()
-                        sheet.update_cell(cell.row, 18, st.session_state.user_nik)
-                        sheet.update_cell(cell.row, 19, "REJECTED") 
-                        sheet.update_cell(cell.row, 20, alasan_c)   
+                        tgl_verif = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
+                        sheet.update_cell(cell.row, 19, tgl_verif)
+                        sheet.update_cell(cell.row, 20, st.session_state.user_nik)
+                        sheet.update_cell(cell.row, 21, "REJECTED") 
+                        sheet.update_cell(cell.row, 22, alasan_c)   
                         st.error("Verifikasi Ditolak."); st.rerun()
                 else:
                     st.info("Menunggu Verifikasi Cashier")
