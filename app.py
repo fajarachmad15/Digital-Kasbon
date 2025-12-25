@@ -109,12 +109,13 @@ if 'data_ringkasan' not in st.session_state: st.session_state.data_ringkasan = {
 if 'show_errors' not in st.session_state: st.session_state.show_errors = False
 if 'mgr_logged_in' not in st.session_state: st.session_state.mgr_logged_in = False
 if 'user_role' not in st.session_state: st.session_state.user_role = ""
-# UPDATE: State baru untuk menyimpan NIK & Store User yg login
 if 'user_nik' not in st.session_state: st.session_state.user_nik = ""
 if 'user_store_code' not in st.session_state: st.session_state.user_store_code = ""
 
-# --- 4. TAMPILAN APPROVAL (MANAGER & CASHIER) ---
+# --- 4. TAMPILAN PORTAL (Manager, Cashier, Requester) ---
 query_id = st.query_params.get("id")
+query_mode = st.query_params.get("mode") # Mengambil parameter mode (terima/realisasi)
+
 if query_id:
     try:
         creds = get_creds()
@@ -123,21 +124,157 @@ if query_id:
         cell = sheet.find(query_id)
         row_data = sheet.row_values(cell.row)
         
-        # === MAPPING DATABASE BARU (SETELAH SISIP KOLOM O & R) ===
-        # Index 14 (Kolom O) = User_ID_Mgr_Approval (NIK)
-        # Index 15 (Kolom P) = Status_Approval_MGR
-        # Index 16 (Kolom Q) = Reason_Reject_MGR
-        # Index 17 (Kolom R) = User_ID_CSR_Verifikasi (NIK)
-        # Index 18 (Kolom S) = Verifikasi_Cashier
-        # Index 19 (Kolom T) = Reason_Reject_Csr
+        # Mapping Data Dasar
+        r_no = row_data[1]
+        r_req_email = row_data[3]
+        r_nama = row_data[4]
+        r_nip = row_data[5]
+        r_dept = row_data[6]
+        r_nominal_awal = int(row_data[7])
+        r_terbilang_awal = row_data[8]
+        r_keperluan = row_data[9]
+        r_janji = row_data[11]
         
-        # Ambil data dengan aman (cek panjang list)
+        # Status Approval Existing
         status_mgr = row_data[15] if len(row_data) > 15 else "Pending"
-        reason_mgr = row_data[16] if len(row_data) > 16 else ""
         status_cashier = row_data[18] if len(row_data) > 18 else ""
+
+        # Mapping Data Baru (Requester Flow) - Kolom U, V, W, X, Y
+        # Index 20: Status Uang Diterima
+        # Index 21: Tgl Uang Diterima
+        # Index 22: Uang Digunakan
+        # Index 23: Bukti Realisasi
+        # Index 24: Status Realisasi
+        status_terima = row_data[20] if len(row_data) > 20 else ""
+        
+        # --- LOGIKA TAMPILAN REQUESTER (TANPA LOGIN) ---
+        if query_mode == "terima" or query_mode == "realisasi":
+            
+            # Header sesuai mode
+            header_text = "Portal Konfirmasi Uang Diterima" if query_mode == "terima" else "Portal Realisasi Kasbon"
+            st.markdown(f'<span class="store-header">{header_text}</span>', unsafe_allow_html=True)
+            
+            # Tampilan Data (Disamakan dengan Cashier/Manager)
+            st.info(f"### Rincian Pengajuan: {query_id}")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.write(f"**Tgl:** {row_data[0]}")
+                st.write(f"**Dibayarkan:** {r_nama} / {r_nip}")
+                st.write(f"**Dept:** {r_dept}")
+            with c2:
+                st.write(f"**Nominal:** Rp {r_nominal_awal:,}")
+                st.write(f"**Terbilang:** {r_terbilang_awal}")
+                st.write(f"**Janji:** {r_janji}")
+            st.write(f"**Keperluan:** {r_keperluan}")
+            st.divider()
+
+            # --- A. PORTAL UANG DITERIMA ---
+            if query_mode == "terima":
+                # Validasi: Cashier Harus Approved
+                if status_cashier != "APPROVED":
+                    st.warning("⚠️ Menunggu verifikasi Cashier sebelum uang dapat diambil.")
+                    st.stop()
+                
+                # Cek jika sudah pernah konfirmasi
+                if status_terima == "Sudah Diterima":
+                    st.success(f"✅ Uang telah dikonfirmasi diterima pada {row_data[21] if len(row_data)>21 else ''}")
+                    st.stop()
+
+                st.write("Silakan klik tombol di bawah jika uang kasbon fisik telah Anda terima.")
+                if st.button("Konfirmasi uang sudah diterima dan sesuai", type="primary", use_container_width=True):
+                    # Update DB: Col U (21) Status, Col V (22) Timestamp
+                    tgl_terima = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
+                    sheet.update_cell(cell.row, 21, "Sudah Diterima")
+                    sheet.update_cell(cell.row, 22, tgl_terima)
+                    st.success("Konfirmasi Berhasil!"); st.balloons(); st.rerun()
+
+            # --- B. PORTAL REALISASI ---
+            elif query_mode == "realisasi":
+                # Validasi: Harus sudah terima uang
+                if status_terima != "Sudah Diterima":
+                    st.error("⚠️ Harap lakukan konfirmasi 'Uang Diterima' terlebih dahulu pada link sebelumnya.")
+                    st.stop()
+                
+                # Cek jika sudah realisasi
+                status_real = row_data[24] if len(row_data) > 24 else ""
+                if status_real == "Completed":
+                    st.success("✅ Laporan realisasi sudah dikirim.")
+                    st.stop()
+
+                st.subheader("📝 Laporan Penggunaan Dana")
+                
+                # Input Uang Digunakan
+                uang_digunakan = st.number_input("Total Uang Digunakan (Rp)", min_value=0, step=1000)
+                
+                # Kalkulasi Auto
+                selisih = r_nominal_awal - uang_digunakan
+                
+                col_kiri, col_kanan = st.columns(2)
+                
+                # Logic Tampilan Kalkulasi
+                val_kembali = 0
+                val_terima = 0
+                txt_kembali = "Nol Rupiah"
+                txt_terima = "Nol Rupiah"
+
+                if uang_digunakan < r_nominal_awal:
+                    val_kembali = selisih
+                    txt_kembali = terbilang(val_kembali).title() + " Rupiah"
+                elif uang_digunakan > r_nominal_awal:
+                    val_terima = abs(selisih)
+                    txt_terima = terbilang(val_terima).title() + " Rupiah"
+                else: # Sama
+                    txt_kembali = "Nol Rupiah"
+                    txt_terima = "Nol Rupiah"
+
+                with col_kiri:
+                    st.markdown(f"**Uang yg dikembalikan ke perusahaan:**")
+                    st.text_input("Nominal Kembali", value=f"Rp {val_kembali:,}", disabled=True)
+                    st.caption(f"*{txt_kembali}*")
+                
+                with col_kanan:
+                    st.markdown(f"**Uang yg diterima (Reimburse):**")
+                    st.text_input("Nominal Terima", value=f"Rp {val_terima:,}", disabled=True)
+                    st.caption(f"*{txt_terima}*")
+                
+                st.write("---")
+                st.write("📸 **Bukti Lampiran (Wajib: Foto Nota & Item)**")
+                opsi_b = st.radio("Metode Lampiran:", ["Upload File", "Kamera"])
+                bukti_real = st.file_uploader("Upload Foto", type=['png','jpg','jpeg','pdf']) if opsi_b == "Upload File" else st.camera_input("Ambil Foto")
+
+                if st.button("Kirim Laporan Realisasi", type="primary", use_container_width=True):
+                    if bukti_real and uang_digunakan >= 0:
+                        try:
+                            # Upload tidak diimplementasikan penuh (hanya placeholder text di DB sesuai kode awal)
+                            link_bukti = "Lampiran Ada (File/Foto)" 
+                            
+                            # Update DB
+                            # Col W (23): Uang Digunakan
+                            # Col X (24): Bukti (String placeholder)
+                            # Col Y (25): Status Realisasi
+                            # Col Z (26): Tgl Realisasi
+                            tgl_real = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
+                            
+                            sheet.update_cell(cell.row, 23, uang_digunakan)
+                            sheet.update_cell(cell.row, 24, link_bukti)
+                            sheet.update_cell(cell.row, 25, "Completed")
+                            sheet.update_cell(cell.row, 26, tgl_real)
+                            
+                            st.success("Realisasi Berhasil Disimpan!"); st.balloons(); st.rerun()
+                        except Exception as e:
+                            st.error(f"Gagal menyimpan: {e}")
+                    else:
+                        st.error("⚠️ Harap lengkapi bukti lampiran.")
+
+            st.stop() # Stop agar tidak lanjut ke logika Manager/Cashier
+
+        # --- LOGIKA EXISTING (MANAGER & CASHIER) ---
+        # --- (Hanya jalan jika tidak ada parameter mode) ---
+
+        # Ambil ulang data reason (karena variabel di atas scope-nya global script)
+        reason_mgr = row_data[16] if len(row_data) > 16 else ""
         reason_csr = row_data[19] if len(row_data) > 19 else ""
 
-        # --- LOGIKA STATUS TAMPILAN ---
         if status_mgr == "Pending":
             judul_portal = "Portal Approval Manager"
             display_status = "PENDING (Waiting Manager)"
@@ -153,7 +290,6 @@ if query_id:
 
         st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
 
-        # --- LOGIN CREDENTIAL (MANAGER / CASHIER) ---
         if not st.session_state.mgr_logged_in:
             st.subheader("🔐 Verifikasi Manager/Cashier")
             v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
@@ -165,92 +301,61 @@ if query_id:
                     if user: 
                         st.session_state.mgr_logged_in = True
                         st.session_state.user_role = user['Role']
-                        st.session_state.user_nik = str(user['NIK']).zfill(6) # Simpan NIK
-                        st.session_state.user_store_code = str(user['Kode_Store']) # Simpan Kode Store User
+                        st.session_state.user_nik = str(user['NIK']).zfill(6)
+                        st.session_state.user_store_code = str(user['Kode_Store'])
                         st.rerun()
                     else: st.error("NIK atau Password salah.")
                 else: st.warning("Cek kembali NIK & Password.")
             st.stop()
 
-        # --- VALIDASI AKSES STORE (PERMINTAAN NO. 2) ---
-        # row_data[2] adalah Kode Store pengajuan (Kolom C)
         store_pengajuan = row_data[2]
         user_store_login = st.session_state.user_store_code
-
-        # Hanya jalankan validasi jika user adalah Manager/Cashier yang sedang login
-        # Jika role 'Manager' atau 'Senior Cashier', store harus sama.
         if user_store_login != store_pengajuan:
             st.error(f"⛔ AKSES DITOLAK! Anda terdaftar di store {user_store_login}, tidak dapat mengakses pengajuan store {store_pengajuan}.")
             st.stop()
 
-        # --- TAMPILAN DATA RINCIAN ---
         st.info(f"### Rincian Pengajuan: {query_id}")
         c1, c2 = st.columns(2)
         with c1:
             st.write(f"**Tgl:** {row_data[0]}")
-            st.write(f"**Dibayarkan:** {row_data[4]} / {row_data[5]}")
-            st.write(f"**Dept:** {row_data[6]}")
+            st.write(f"**Dibayarkan:** {r_nama} / {r_nip}")
+            st.write(f"**Dept:** {r_dept}")
         with c2:
-            st.write(f"**Nominal:** Rp {int(row_data[7]):,}")
-            st.write(f"**Terbilang:** {row_data[8]}")
-            st.write(f"**Janji:** {row_data[11]}")
-        
-        st.write(f"**Keperluan:** {row_data[9]}")
+            st.write(f"**Nominal:** Rp {r_nominal_awal:,}")
+            st.write(f"**Terbilang:** {r_terbilang_awal}")
+            st.write(f"**Janji:** {r_janji}")
+        st.write(f"**Keperluan:** {r_keperluan}")
         st.write(f"**Status Saat Ini:** `{display_status}`")
         st.divider()
 
-        # --- LOGIKA PORTAL TERPISAH & UPDATE DATABASE ---
-        
-        # 1. POSISI: MANAGER PENDING
+        # LOGIKA UPDATE DATABASE (MGR/CSR)
         if status_mgr == "Pending":
             if st.session_state.user_role == "Manager":
                 alasan = st.text_area("Alasan Reject (Wajib diisi jika Reject)", placeholder="Contoh: Nominal terlalu besar...")
                 b1, b2 = st.columns(2)
-                
-                # ACTION: APPROVE MANAGER
                 if b1.button("✓ APPROVE", use_container_width=True):
-                    # UPDATE DATABASE (PERMINTAAN NO. 1 - NIK TERRECORD)
-                    # Col O (15) = NIK Manager
-                    # Col P (16) = Status APPROVED
                     sheet.update_cell(cell.row, 15, st.session_state.user_nik) 
                     sheet.update_cell(cell.row, 16, "APPROVED") 
-                    
-                    # Kirim Email Notif ke Cashier
                     try:
                         cashier_info = row_data[12] 
                         cashier_email = cashier_info.split("(")[1].split(")")[0]
                         cashier_name = cashier_info.split(" - ")[1].split(" (")[0]
                         
-                        r_tgl = row_data[0]
-                        r_bayar = f"{row_data[4]} / {row_data[5]}"
-                        r_dept = row_data[6]
-                        r_nom = f"Rp {int(row_data[7]):,}"
-                        r_terbilang = row_data[8]
-                        r_kep = row_data[9]
-                        r_approve_supp = row_data[10]
-                        r_janji = row_data[11]
-
                         email_msg = f"""
                         <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                             <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {cashier_name}</div>
-                            
                             <div style='margin-bottom: 10px;'>Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVED</b> oleh Manager:</div>
-                            
                             <table style='border: none; border-collapse: collapse; width: 100%; max-width: 600px;'>
                                 <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {query_id}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Tgl dan Jam Pengajuan</td><td>: {r_tgl}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Dibayarkan Kepada</td><td>: {r_bayar}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Tgl dan Jam Pengajuan</td><td>: {row_data[0]}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Dibayarkan Kepada</td><td>: {r_nama}</td></tr>
                                 <tr><td style='padding: 2px 0;'>Departement</td><td>: {r_dept}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Senilai</td><td>: {r_nom} ({r_terbilang})</td></tr>
-                                <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {r_kep}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: {r_approve_supp}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {r_janji}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Senilai</td><td>: Rp {r_nominal_awal:,} ({r_terbilang_awal})</td></tr>
+                                <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {r_keperluan}</td></tr>
                             </table>
-                            
                             <div style='margin-top: 15px; margin-bottom: 10px;'>
                                 Silahkan klik <a href='{BASE_URL}?id={query_id}' style='text-decoration: none; color: #0000EE;'>link berikut</a> untuk melanjutkan prosesnya.
                             </div>
-                            
                             <div>Terima Kasih</div>
                         </body></html>
                         """
@@ -258,61 +363,75 @@ if query_id:
                     except: pass
                     st.success("Approved! Menunggu verifikasi cashier."); st.balloons(); st.rerun()
 
-                # ACTION: REJECT MANAGER
                 if b2.button("✕ REJECT", use_container_width=True):
                     if not alasan: st.error("Harap isi alasan reject!"); st.stop()
-                    # Col O (15) = NIK Manager
-                    # Col P (16) = Status REJECTED
-                    # Col Q (17) = Reason
                     sheet.update_cell(cell.row, 15, st.session_state.user_nik)
                     sheet.update_cell(cell.row, 16, "REJECTED") 
                     sheet.update_cell(cell.row, 17, alasan)    
                     st.error("Pengajuan telah di-Reject."); st.rerun()
-            
             else:
                 st.info("Menunggu Approval Manager")
 
-        # 2. POSISI: MANAGER APPROVED -> MENUNGGU CASHIER
         elif status_mgr == "APPROVED":
-            
-            # Jika Cashier Belum Verifikasi (Kolom S Kosong/Pending)
             if status_cashier == "" or status_cashier == "Pending":
                 if st.session_state.user_role == "Senior Cashier":
-                    # TAMPILAN CASHIER
                     alasan_c = st.text_area("Alasan Reject (Wajib diisi jika Reject)", placeholder="Contoh: Saldo fisik tidak cukup...")
                     k1, k2 = st.columns(2)
                     
-                    # ACTION: APPROVE CASHIER
                     if k1.button("✓ VERIFIKASI APPROVE", use_container_width=True):
-                        # UPDATE DATABASE (PERMINTAAN NO. 1 - NIK TERRECORD)
-                        # Col R (17 di Index list, 18 di Gspread) = NIK Cashier
-                        # Col S (18 di Index list, 19 di Gspread) = Status
+                        # 1. Update DB Cashier
                         sheet.update_cell(cell.row, 18, st.session_state.user_nik)
-                        sheet.update_cell(cell.row, 19, "APPROVED") 
-                        st.success("Verifikasi Berhasil. Status Selesai."); st.balloons(); st.rerun()
+                        sheet.update_cell(cell.row, 19, "APPROVED")
+                        
+                        # 2. KIRIM EMAIL KE REQUESTER (Permintaan Baru)
+                        try:
+                            # Link Portal
+                            link_terima = f"{BASE_URL}?id={query_id}&mode=terima"
+                            link_realisasi = f"{BASE_URL}?id={query_id}&mode=realisasi"
+                            
+                            email_req_body = f"""
+                            <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
+                                <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {r_nama}</div>
+                                
+                                <div style='margin-bottom: 10px;'>Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVE</b> oleh Manager dan di-<b>VERIFIKASI</b> oleh Cashier :</div>
+                                
+                                <table style='border: none; border-collapse: collapse; width: 100%; max-width: 600px;'>
+                                    <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {query_id}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Diajukan Oleh</td><td>: {r_nama} / {r_nip}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Departement</td><td>: {r_dept}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {r_keperluan}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Senilai</td><td>: Rp {r_nominal_awal:,} ({r_terbilang_awal})</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {r_janji}</td></tr>
+                                </table>
+                                
+                                <div style='margin-top: 20px; margin-bottom: 5px;'>
+                                    Klik <a href='{link_terima}' style='text-decoration: none; color: #0000EE; font-weight:bold;'>Link Diterima</a> sebagai konfirmasi uang telah diterima.
+                                </div>
+                                <div style='margin-bottom: 20px;'>
+                                    Dan Klik <a href='{link_realisasi}' style='text-decoration: none; color: #0000EE; font-weight:bold;'>Link Realisasi</a> ketika uang sudah selesai digunakan.
+                                </div>
+                                
+                                <div>Terima Kasih</div>
+                            </body></html>
+                            """
+                            send_email_with_attachment(r_req_email, f"Kasbon Disetujui {query_id}", email_req_body)
+                        except Exception as e:
+                            print(f"Gagal kirim email requester: {e}")
+
+                        st.success("Verifikasi Berhasil. Email ke Requester terkirim."); st.balloons(); st.rerun()
                     
-                    # ACTION: REJECT CASHIER
                     if k2.button("✕ VERIFIKASI REJECT", use_container_width=True):
                         if not alasan_c: st.error("Harap isi alasan reject!"); st.stop()
-                        # Col R (18) = NIK Cashier
-                        # Col S (19) = Status REJECTED
-                        # Col T (20) = Reason
                         sheet.update_cell(cell.row, 18, st.session_state.user_nik)
                         sheet.update_cell(cell.row, 19, "REJECTED") 
                         sheet.update_cell(cell.row, 20, alasan_c)   
                         st.error("Verifikasi Ditolak."); st.rerun()
                 else:
                     st.info("Menunggu Verifikasi Cashier")
-
-            # Jika Cashier Sudah Approve
             elif status_cashier == "APPROVED":
                 st.info("Status kasbon disetujui")
-
-            # Jika Cashier Reject
             elif status_cashier == "REJECTED":
                 st.error(f"Status kasbon di rejek karena {reason_csr}")
-
-        # 3. POSISI: MANAGER REJECTED
         elif status_mgr == "REJECTED":
              st.error(f"Status kasbon di rejek karena {reason_mgr}")
 
@@ -428,14 +547,12 @@ else:
                             final_t = terbilang(int(nom_r)).title() + " Rupiah"
                             link_db = "Terlampir di Email" if bukti else "-"
                             
-                            # === UPDATE STRUKTUR DATA (MENYESUAIKAN KOLOM BARU) ===
-                            # O (Kosong utk NIK Mgr), P (Pending utk Status Mgr), Q (Kosong Reason)
-                            # R (Kosong utk NIK Csr), S (Kosong Status Csr), T (Kosong Reason)
                             sheet.append_row([
                                 tgl_now.strftime("%Y-%m-%d %H:%M:%S"), no_p, kode_store, pic_email, 
                                 nama_p, nip, dept, nom_r, final_t, kep, link_db, 
                                 janji.strftime("%d/%m/%Y"), sc_f, mgr_f, 
-                                "", "Pending", "", "", "", "" 
+                                "", "Pending", "", "", "", "",
+                                "", "", "", "", "", "" # Placeholder untuk kolom baru (21-26)
                             ])
                             
                             mgr_clean = mgr_f.split(" - ")[1].split(" (")[0]
@@ -446,9 +563,7 @@ else:
                             email_body = f"""
                             <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                                 <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {mgr_clean}</div>
-                                
                                 <div style='margin-bottom: 10px;'>Mohon approvalnya untuk pengajuan kasbon dengan data di bawah ini :</div>
-                                
                                 <table style='border: none; border-collapse: collapse; width: 100%; max-width: 600px;'>
                                     <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {no_p}</td></tr>
                                     <tr><td style='padding: 2px 0;'>Tgl dan Jam Pengajuan</td><td>: {tgl_full}</td></tr>
@@ -459,11 +574,9 @@ else:
                                     <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: {link_html}</td></tr>
                                     <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {janji.strftime("%d/%m/%Y")}</td></tr>
                                 </table>
-                                
                                 <div style='margin-top: 15px; margin-bottom: 10px;'>
                                     Silahkan klik <a href='{app_link}' style='text-decoration: none; color: #0000EE;'>link berikut</a> untuk melanjutkan prosesnya
                                 </div>
-                                
                                 <div>Terima Kasih</div>
                             </body></html>
                             """
