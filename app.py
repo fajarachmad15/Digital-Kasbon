@@ -52,6 +52,15 @@ st.markdown("""
         background-color: rgba(220, 53, 69, 0.3) !important;
         border: 1px solid rgba(220, 53, 69, 0.5) !important;
     }
+
+    /* HILANGKAN TOMBOL +/- PADA NUMBER INPUT */
+    [data-testid="stNumberInput"] button {
+        display: none !important;
+    }
+    /* Sembunyikan container step jika ada */
+    div[data-testid="stInputNumberStepContainer"] {
+        display: none !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -136,6 +145,7 @@ if query_id:
         row_data = sheet.row_values(cell.row)
         
         # Mapping Data Dasar
+        r_store_code = row_data[2] # Kode Store ada di index 2
         r_no = row_data[1]
         r_req_email = row_data[3]
         r_nama = row_data[4]
@@ -144,6 +154,7 @@ if query_id:
         r_nominal_awal = int(row_data[7])
         r_terbilang_awal = row_data[8]
         r_keperluan = row_data[9]
+        r_link_lampiran = row_data[10] # Link Lampiran ada di index 10
         r_janji = row_data[11]
         
         # Status Approval Existing
@@ -160,18 +171,20 @@ if query_id:
             header_text = "Portal Konfirmasi Uang Diterima" if query_mode == "terima" else "Portal Realisasi Kasbon"
             st.markdown(f'<span class="store-header">{header_text}</span>', unsafe_allow_html=True)
             
-            # Tampilan Data (Disamakan dengan Cashier/Manager)
-            st.info(f"### Rincian Pengajuan: {query_id}")
+            # Tampilan Data (Disamakan dengan Cashier/Manager & Ringkasan Pengajuan - Bullet Point)
+            st.info(f"### Rincian Pengajuan")
             c1, c2 = st.columns(2)
             with c1:
-                st.write(f"**Tgl:** {row_data[0]}")
-                st.write(f"**Dibayarkan:** {r_nama} / {r_nip}")
-                st.write(f"**Dept:** {r_dept}")
+                st.markdown(f"* **No. Pengajuan:** {query_id}")
+                st.markdown(f"* **Kode Store:** {r_store_code}")
+                st.markdown(f"* **Dibayarkan Kepada:** {r_nama} / {r_nip}")
+                st.markdown(f"* **Departemen:** {r_dept}")
             with c2:
-                st.write(f"**Nominal:** Rp {r_nominal_awal:,}")
-                st.write(f"**Terbilang:** {r_terbilang_awal}")
-                st.write(f"**Janji:** {r_janji}")
-            st.write(f"**Keperluan:** {r_keperluan}")
+                st.markdown(f"* **Nominal:** Rp {r_nominal_awal:,}")
+                st.markdown(f"* **Terbilang:** {r_terbilang_awal}")
+                st.markdown(f"* **Keperluan:** {r_keperluan}")
+                st.markdown(f"* **Janji Penyelesaian:** {r_janji}")
+            
             st.divider()
 
             # --- A. PORTAL UANG DITERIMA ---
@@ -207,11 +220,19 @@ if query_id:
                     st.success("✅ Laporan realisasi sudah dikirim.")
                     st.stop()
 
-                st.subheader("📝 Laporan Penggunaan Dana")
+                st.subheader("📝 Laporan Pertanggung Jawaban")
                 
-                # Input Uang Digunakan
-                uang_digunakan = st.number_input("Total Uang Digunakan (Rp)", min_value=0, step=1000)
+                # Input Uang Digunakan (Tanpa Tombol +/- dan ada Terbilang)
+                st.markdown("**Total Uang Digunakan (Rp)**")
+                # Menggunakan step=1 agar integer, tombol disembunyikan via CSS di atas
+                uang_digunakan = st.number_input("", min_value=0, step=1, label_visibility="collapsed")
                 
+                # Teks Terbilang di bawah input
+                if uang_digunakan > 0:
+                    st.caption(f"*{terbilang(uang_digunakan).title()} Rupiah*")
+                else:
+                    st.caption("*Nol Rupiah*")
+
                 # Kalkulasi Auto
                 selisih = r_nominal_awal - uang_digunakan
                 
@@ -257,7 +278,8 @@ if query_id:
                                 try:
                                     f_type = bukti_real.type
                                     f_ext = f_type.split("/")[-1]
-                                    f_name = f"REALISASI_{query_id}.{f_ext}"
+                                    # NAMA FILE DIGANTI SESUAI REQUEST
+                                    f_name = f"Lampiran_Realisasi_{query_id}.{f_ext}"
                                     f_content = bukti_real.getvalue()
                                     f_b64 = base64.b64encode(f_content).decode('utf-8')
                                     
@@ -345,17 +367,20 @@ if query_id:
             st.error(f"⛔ AKSES DITOLAK! Anda terdaftar di store {user_store_login}, tidak dapat mengakses pengajuan store {store_pengajuan}.")
             st.stop()
 
-        st.info(f"### Rincian Pengajuan: {query_id}")
+        # Tampilan Data Manager/Cashier (Disamakan dengan Ringkasan Pengajuan - Bullet Point)
+        st.info(f"### Rincian Pengajuan")
         c1, c2 = st.columns(2)
         with c1:
-            st.write(f"**Tgl:** {row_data[0]}")
-            st.write(f"**Dibayarkan:** {r_nama} / {r_nip}")
-            st.write(f"**Dept:** {r_dept}")
+            st.markdown(f"* **No. Pengajuan:** {query_id}")
+            st.markdown(f"* **Kode Store:** {r_store_code}")
+            st.markdown(f"* **Dibayarkan Kepada:** {r_nama} / {r_nip}")
+            st.markdown(f"* **Departemen:** {r_dept}")
         with c2:
-            st.write(f"**Nominal:** Rp {r_nominal_awal:,}")
-            st.write(f"**Terbilang:** {r_terbilang_awal}")
-            st.write(f"**Janji:** {r_janji}")
-        st.write(f"**Keperluan:** {r_keperluan}")
+            st.markdown(f"* **Nominal:** Rp {r_nominal_awal:,}")
+            st.markdown(f"* **Terbilang:** {r_terbilang_awal}")
+            st.markdown(f"* **Keperluan:** {r_keperluan}")
+            st.markdown(f"* **Janji Penyelesaian:** {r_janji}")
+        
         st.write(f"**Status Saat Ini:** `{display_status}`")
         st.divider()
 
@@ -379,10 +404,12 @@ if query_id:
                             <table style='border: none; border-collapse: collapse; width: 100%; max-width: 600px;'>
                                 <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {query_id}</td></tr>
                                 <tr><td style='padding: 2px 0;'>Tgl dan Jam Pengajuan</td><td>: {row_data[0]}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Dibayarkan Kepada</td><td>: {r_nama}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Dibayarkan Kepada</td><td>: {r_nama} / {r_nip}</td></tr>
                                 <tr><td style='padding: 2px 0;'>Departement</td><td>: {r_dept}</td></tr>
                                 <tr><td style='padding: 2px 0;'>Senilai</td><td>: Rp {r_nominal_awal:,} ({r_terbilang_awal})</td></tr>
                                 <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {r_keperluan}</td></tr>
+                                <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: <a href="{r_link_lampiran}">{r_link_lampiran}</a></td></tr>
+                                <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {r_janji}</td></tr>
                             </table>
                             <div style='margin-top: 15px; margin-bottom: 10px;'>
                                 Silahkan klik <a href='{BASE_URL}?id={query_id}' style='text-decoration: none; color: #0000EE;'>link berikut</a> untuk melanjutkan prosesnya.
@@ -420,6 +447,7 @@ if query_id:
                             link_terima = f"{BASE_URL}?id={query_id}&mode=terima"
                             link_realisasi = f"{BASE_URL}?id={query_id}&mode=realisasi"
                             
+                            # Update Email Body: Samakan persis dengan data Manager
                             email_req_body = f"""
                             <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                                 <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {r_nama}</div>
@@ -428,10 +456,12 @@ if query_id:
                                 
                                 <table style='border: none; border-collapse: collapse; width: 100%; max-width: 600px;'>
                                     <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {query_id}</td></tr>
-                                    <tr><td style='padding: 2px 0;'>Diajukan Oleh</td><td>: {r_nama} / {r_nip}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Tgl dan Jam Pengajuan</td><td>: {row_data[0]}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Dibayarkan Kepada</td><td>: {r_nama} / {r_nip}</td></tr>
                                     <tr><td style='padding: 2px 0;'>Departement</td><td>: {r_dept}</td></tr>
-                                    <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {r_keperluan}</td></tr>
                                     <tr><td style='padding: 2px 0;'>Senilai</td><td>: Rp {r_nominal_awal:,} ({r_terbilang_awal})</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {r_keperluan}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: <a href="{r_link_lampiran}">{r_link_lampiran}</a></td></tr>
                                     <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {r_janji}</td></tr>
                                 </table>
                                 
@@ -476,17 +506,19 @@ if st.session_state.submitted:
     st.info(f"Email notifikasi telah dikirim ke Manager.")
     st.write("---")
     st.subheader("Ringkasan Pengajuan")
+    
+    # FORMAT RINGKASAN: Bullet Point sesuai request
     col_res1, col_res2 = st.columns(2)
     with col_res1:
-        st.write(f"**1. No. Pengajuan:** {d['no_pengajuan']}")
-        st.write(f"**2. Kode Store:** {d['kode_store']}")
-        st.write(f"**3. Dibayarkan Kepada:** {d['nama']} / {d['nip']}")
-        st.write(f"**4. Departemen:** {d['dept']}")
+        st.markdown(f"* **No. Pengajuan:** {d['no_pengajuan']}")
+        st.markdown(f"* **Kode Store:** {d['kode_store']}")
+        st.markdown(f"* **Dibayarkan Kepada:** {d['nama']} / {d['nip']}")
+        st.markdown(f"* **Departemen:** {d['dept']}")
     with col_res2:
-        st.write(f"**6. Nominal:** Rp {int(d['nominal']):,}")
-        st.write(f"**7. Terbilang:** {d['terbilang']}")
-        st.write(f"**8. Keperluan:** {d['keperluan']}")
-        st.write(f"**9. Janji Penyelesaian:** {d['janji']}")
+        st.markdown(f"* **Nominal:** Rp {int(d['nominal']):,}")
+        st.markdown(f"* **Terbilang:** {d['terbilang']}")
+        st.markdown(f"* **Keperluan:** {d['keperluan']}")
+        st.markdown(f"* **Janji Penyelesaian:** {d['janji']}")
     
     c1, c2 = st.columns(2)
     if c1.button("Buat Pengajuan Baru", use_container_width=True):
