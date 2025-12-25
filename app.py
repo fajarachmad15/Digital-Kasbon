@@ -21,14 +21,10 @@ st.markdown("""
     div[data-testid="stWidgetLabel"] { display: none; }
     .store-header { color: #FF0000 !important; font-size: 1.25rem; font-weight: 600; margin-top: 1rem; margin-bottom: 1rem; display: block; }
 
-    /* STYLING TOMBOL APPROVAL (Image 707050) */
+    /* STYLING TOMBOL APPROVAL TRANSPARAN (Image 707050) */
     .stButton > button { border-radius: 8px; font-weight: 600; color: white !important; }
-    div.stColumn:nth-of-type(1) [data-testid="stButton"] button {
-        background-color: rgba(40, 167, 69, 0.4) !important; border: 1px solid rgba(40, 167, 69, 0.6) !important;
-    }
-    div.stColumn:nth-of-type(2) [data-testid="stButton"] button {
-        background-color: rgba(220, 53, 69, 0.4) !important; border: 1px solid rgba(220, 53, 69, 0.6) !important;
-    }
+    div.stColumn:nth-of-type(1) [data-testid="stButton"] button { background-color: rgba(40, 167, 69, 0.4) !important; border: 1px solid rgba(40, 167, 69, 0.6) !important; }
+    div.stColumn:nth-of-type(2) [data-testid="stButton"] button { background-color: rgba(220, 53, 69, 0.4) !important; border: 1px solid rgba(220, 53, 69, 0.6) !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -75,12 +71,12 @@ def terbilang(n):
 if 'submitted' not in st.session_state: st.session_state.submitted = False
 if 'mgr_logged_in' not in st.session_state: st.session_state.mgr_logged_in = False
 
-# --- 4. TAMPILAN APPROVAL MANAGER (Wajib NIK & Password) ---
+# --- 4. TAMPILAN APPROVAL MANAGER (NIK & PASSWORD) ---
 query_id = st.query_params.get("id")
 if query_id:
     st.markdown('<span class="store-header">Portal Approval Manager</span>', unsafe_allow_html=True)
     
-    # LOGIN KHUSUS MGR/CASHIER (Image 70ec0a)
+    # Login Manager Wajib (Image 70ec0a)
     if not st.session_state.mgr_logged_in:
         st.subheader("🔐 Verifikasi Manager/Cashier")
         v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
@@ -100,91 +96,74 @@ if query_id:
         st.info(f"### Rincian Pengajuan: {query_id}")
         c1, c2 = st.columns(2)
         with c1:
-            st.write(f"**Tgl Pengajuan:** {row_data[0]}"); st.write(f"**Dibayarkan:** {row_data[4]} / {row_data[5]}")
+            st.write(f"**Tgl:** {row_data[0]}"); st.write(f"**Dibayarkan:** {row_data[4]} / {row_data[5]}")
         with c2:
             st.write(f"**Nominal:** Rp {int(row_data[7]):,}")
-            # PERBAIKAN: Tambah Terbilang di Portal Approval (Point 1)
-            st.write(f"**Terbilang:** {row_data[8]}")
-            st.write(f"**Janji Selesai:** {row_data[11]}")
-        st.write(f"**Status Saat Ini:** `{row_data[14]}`"); st.divider()
-        
+            st.write(f"**Terbilang:** {row_data[8]}") # TERBILANG UNTUK MANAGER
+        st.write(f"**Keperluan:** {row_data[9]} | **Status:** `{row_data[14]}`")
         if row_data[14] == "Pending":
             b1, b2 = st.columns(2)
-            if b1.button("✓ APPROVE", use_container_width=True):
-                sheet.update_cell(cell.row, 15, "APPROVED"); st.balloons(); st.rerun()
-            if b2.button("✕ REJECT", use_container_width=True):
-                sheet.update_cell(cell.row, 15, "REJECTED"); st.rerun()
-        else:
-            st.warning(f"Pengajuan ini sudah diproses dengan status: {row_data[14]}")
+            if b1.button("✓ APPROVE", use_container_width=True): sheet.update_cell(cell.row, 15, "APPROVED"); st.balloons(); st.rerun()
+            if b2.button("✕ REJECT", use_container_width=True): sheet.update_cell(cell.row, 15, "REJECTED"); st.rerun()
+        else: st.warning(f"Sudah diproses: {row_data[14]}")
     except: pass
     st.stop()
 
-# --- 5. LOGIKA LOGIN GOOGLE PIC (Point 4: Klik Tanpa Ketik) ---
-# Menggunakan komponen visual untuk memicu login browser
-if 'pic_email' not in st.session_state:
+# --- 5. LOGIKA LOGIN GOOGLE (PENGADAN) ---
+# Memastikan Pengaju Wajib Klik (image_71650b.png)
+if not st.user.get("email"):
     st.subheader("🌐 Kasbon Digital Petty Cash")
-    st.info("Klik tombol di bawah untuk masuk menggunakan Gmail aktif Anda (Tanpa Ketik Manual).")
+    st.info("Klik tombol di bawah untuk masuk menggunakan akun Gmail aktif di perangkat Anda (Tanpa Ketik Manual).")
     if st.button("Sign in with Google", type="primary", use_container_width=True):
-        # Simulasi login untuk menghindari AttributeError pada repo publik
-        # Ini akan memaksa browser meminta akun jika belum ada yang tertaut
-        st.session_state.pic_email = "Logged_In" 
-        st.rerun()
+        st.login()
     st.stop()
 
 # --- 6. TAMPILAN INPUT USER (PIC) ---
+pic_email = st.user.email # MENANGKAP EMAIL ASLI DARI GOOGLE
+
 if st.session_state.submitted:
     st.success("## ✅ PENGAJUAN TELAH TERKIRIM"); st.write("---")
-    if st.button("Buat Pengajuan Baru"): st.session_state.submitted = False; st.rerun()
-    if st.button("Logout Akun"): del st.session_state.pic_email; st.rerun()
+    if st.button("Buat Baru"): st.session_state.submitted = False; st.rerun()
+    if st.button("Logout"): st.logout()
 
 else:
+    st.caption(f"Logged in as: **{pic_email}**") # Verifikasi Visual
     st.subheader("📍 Identifikasi Lokasi")
     kode_store = st.text_input("Masukkan Kode Store", placeholder="Contoh: A644").upper()
-    
     if kode_store:
         try:
             records = gspread.authorize(get_creds()).open_by_key(SPREADSHEET_ID).worksheet("DATABASE_USER").get_all_records()
             store_info = next((u for u in records if str(u['Kode_Store']) == kode_store), None)
             if not store_info: st.error("⚠️ Kode store tidak ada"); st.stop()
-            
             st.markdown(f'<span class="store-header">Unit Bisnis Store: {store_info["Nama_Store"]}</span>', unsafe_allow_html=True)
-            
-            # Email Request (Persistent & No Typos)
-            st.markdown('<div class="label-container"><span class="label-text">Email Request</span></div>', unsafe_allow_html=True)
-            email_val = st.text_input("", value=SENDER_EMAIL, disabled=True)
+            st.text_input("Email Request", value=pic_email, disabled=True)
             
             nama_p = st.text_input("Dibayarkan Kepada"); nip_p = st.text_input("NIP (Wajib 6 Digit)", max_chars=6)
             dept = st.selectbox("Departemen", ["-", "Operational", "Sales", "Inventory", "HR", "Other"])
             nom_r = st.text_input("Nominal (Angka)")
             if nom_r.isdigit(): st.caption(f"**Terbilang:** {terbilang(int(nom_r))} Rupiah")
-            
             kep = st.text_input("Keperluan")
-            opsi = st.radio("Metode Lampiran:", ["File", "Kamera"])
-            bukti = st.file_uploader("Pilih file") if opsi == "Upload File" else st.camera_input("Ambil Foto")
+            bukti = st.file_uploader("Lampiran") if st.radio("Metode", ["File", "Kamera"]) == "File" else st.camera_input("Foto")
             janji = st.date_input("Janji Penyelesaian", min_value=datetime.date.today())
             
             mgrs = [f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})" for u in records if str(u['Kode_Store']) == kode_store and u['Role'] == 'Manager']
             scs = [f"{u['NIK']} - {u['Nama Lengkap']} ({u['Email']})" for u in records if str(u['Kode_Store']) == kode_store and u['Role'] == 'Senior Cashier']
-            mgr_f = st.selectbox("Manager Incharge", ["-"] + mgrs); sc_f = st.selectbox("Senior Cashier Incharge", ["-"] + scs)
+            mgr_f = st.selectbox("Manager", ["-"] + mgrs); sc_f = st.selectbox("Senior Cashier", ["-"] + scs)
 
             if st.button("Kirim Pengajuan", type="primary"):
                 if nama_p and len(nip_p)==6 and nom_r.isdigit() and mgr_f!="-" and sc_f!="-":
-                    try:
-                        sheet = gspread.authorize(get_creds()).open_by_key(SPREADSHEET_ID).worksheet("DATA_KASBON_AZKO")
-                        tgl_n = datetime.datetime.now(WIB)
-                        
-                        # POINT 3: KODE KASBON TANPA DD, RESET HARIAN (Image 707be9)
-                        prefix = f"KB{kode_store}-{tgl_n.strftime('%m%y')}-"
-                        count_today = sum(1 for row in sheet.get_all_values() if row[0].startswith(tgl_n.strftime("%Y-%m-%d")))
-                        no_p = f"{prefix}{str(count_today + 1).zfill(3)}"
-                        
-                        final_t = terbilang(int(nom_r)) + " Rupiah"
-                        # RECORD EMAIL ASLI (Point 1: Bukan teksVerified)
-                        sheet.append_row([tgl_n.strftime("%Y-%m-%d %H:%M:%S"), no_p, kode_store, SENDER_EMAIL, nama_p, nip_p, dept, nom_r, final_t, kep, "Terlampir", janji.strftime("%d/%m/%Y"), sc_f, mgr_f, "Pending"])
-                        
-                        app_link = f"{BASE_URL}?id={no_p}"
-                        send_email_with_attachment(mgr_f.split("(")[1][:-1], f"Approval Kasbon {no_p}", f"Data {nama_p} Rp {int(nom_r):,}. <a href='{app_link}'>Link</a>", bukti)
-                        st.session_state.submitted = True; st.rerun()
-                    except: st.error("Sistem Sibuk.")
+                    sheet = gspread.authorize(get_creds()).open_by_key(SPREADSHEET_ID).worksheet("DATA_KASBON_AZKO")
+                    tgl_n = datetime.datetime.now(WIB)
+                    # ID Kasbon Tanpa Hari (Reset Harian)
+                    prefix = f"KB{kode_store}-{tgl_n.strftime('%m%y')}-"
+                    count_today = sum(1 for r in sheet.get_all_values() if r[0].startswith(tgl_n.strftime("%Y-%m-%d")))
+                    no_p = f"{prefix}{str(count_today + 1).zfill(3)}"
+                    
+                    final_t = terbilang(int(nom_r)) + " Rupiah"
+                    # RECORD EMAIL ASLI DI KOLOM D (Image de50c1)
+                    sheet.append_row([tgl_n.strftime("%Y-%m-%d %H:%M:%S"), no_p, kode_store, pic_email, nama_p, nip_p, dept, nom_r, final_t, kep, "Terlampir", janji.strftime("%d/%m/%Y"), sc_f, mgr_f, "Pending"])
+                    app_link = f"{BASE_URL}?id={no_p}"
+                    send_email_with_attachment(mgr_f.split("(")[1][:-1], f"Approval {no_p}", f"Data {nama_p} Rp {int(nom_r):,}. <a href='{app_link}'>Klik</a>", bukti)
+                    st.session_state.submitted = True; st.rerun()
                 else: st.error("Lengkapi data!")
         except: st.error("Gagal muat database.")
