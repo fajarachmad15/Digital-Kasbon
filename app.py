@@ -3,14 +3,14 @@ import datetime
 import gspread
 import io
 import smtplib
+import requests # LIBRARY BARU (Untuk Jembatan ke Drive)
+import base64   # LIBRARY BARU (Untuk ubah file jadi teks)
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
 from email.utils import formataddr
 from oauth2client.service_account import ServiceAccountCredentials
-from googleapiclient.discovery import build # Library tambahan untuk Drive
-from googleapiclient.http import MediaIoBaseUpload # Library tambahan untuk Upload
 
 # --- 1. SETTING HALAMAN & CSS ---
 st.set_page_config(page_title="Kasbon Digital Petty Cash", layout="centered")
@@ -71,7 +71,12 @@ SENDER_EMAIL = "achmad.setiawan@kawanlamacorp.com"
 APP_PASSWORD = st.secrets["APP_PASSWORD"] 
 BASE_URL = "https://digital-kasbon-ahi.streamlit.app" 
 SPREADSHEET_ID = "1TGsCKhBC0E0hup6RGVbGrpB6ds5Jdrp5tNlfrBORzaI"
-DRIVE_FOLDER_ID = "1H6aZbRbJ7Kw7zdTqkIED1tQUrBR43dBr" # ID Folder Drive Baru
+
+# --- KONFIGURASI DRIVE BARU (JANGAN UBAH INI) ---
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHRNud5-Stn_1WoVwTyodXRzsVH7ApgQAActIn6JPZdaXm2bHtcd4wZjB8BXa2i8Pu/exec"
+DRIVE_FOLDER_ID = "1H6aZbRbJ7Kw7zdTqkIED1tQUrBR43dBr"
+# ------------------------------------------------
+
 WIB = datetime.timezone(datetime.timedelta(hours=7))
 
 def get_creds():
@@ -143,6 +148,11 @@ if query_id:
         status_cashier = row_data[18] if len(row_data) > 18 else ""
 
         # Mapping Data Baru (Requester Flow) - Kolom U, V, W, X, Y
+        # Index 20: Status Uang Diterima
+        # Index 21: Tgl Uang Diterima
+        # Index 22: Uang Digunakan
+        # Index 23: Bukti Realisasi
+        # Index 24: Status Realisasi
         status_terima = row_data[20] if len(row_data) > 20 else ""
         
         # --- LOGIKA TAMPILAN REQUESTER (TANPA LOGIN) ---
@@ -243,10 +253,38 @@ if query_id:
                 if st.button("Kirim Laporan Realisasi", type="primary", use_container_width=True):
                     if bukti_real and uang_digunakan >= 0:
                         try:
-                            # Upload placeholder (Sesuai kode awal, realisasi belum pakai Drive upload yang requested, hanya teks placeholder)
-                            link_bukti = "Lampiran Ada (File/Foto)" 
+                            # --- MODIFIKASI: UPLOAD KE DRIVE VIA SCRIPT ---
+                            link_bukti = "Lampiran Ada (File/Foto)"
+                            if bukti_real:
+                                try:
+                                    f_type = bukti_real.type
+                                    f_ext = f_type.split("/")[-1]
+                                    f_name = f"REALISASI_{query_id}.{f_ext}"
+                                    f_content = bukti_real.getvalue()
+                                    f_b64 = base64.b64encode(f_content).decode('utf-8')
+                                    
+                                    pl = {
+                                        "filename": f_name,
+                                        "filedata": f_b64,
+                                        "mimetype": f_type,
+                                        "folderId": DRIVE_FOLDER_ID
+                                    }
+                                    with st.spinner("Mengupload Bukti Realisasi..."):
+                                        res = requests.post(APPS_SCRIPT_URL, json=pl)
+                                        rj = res.json()
+                                        if rj.get("status") == "success":
+                                            link_bukti = rj.get("url")
+                                        else:
+                                            st.warning(f"Gagal upload ke Drive: {rj.get('message')}")
+                                except Exception as e:
+                                    st.warning(f"Error upload drive: {e}")
+                            # ----------------------------------------------
                             
                             # Update DB
+                            # Col W (23): Uang Digunakan
+                            # Col X (24): Bukti
+                            # Col Y (25): Status Realisasi
+                            # Col Z (26): Tgl Realisasi
                             tgl_real = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
                             
                             sheet.update_cell(cell.row, 23, uang_digunakan)
@@ -319,7 +357,6 @@ if query_id:
             st.write(f"**Terbilang:** {r_terbilang_awal}")
             st.write(f"**Janji:** {r_janji}")
         st.write(f"**Keperluan:** {r_keperluan}")
-        st.write(f"**Approval Pendukung:** {row_data[10] if len(row_data) > 10 else '-'}") # Menampilkan Link Drive di Portal
         st.write(f"**Status Saat Ini:** `{display_status}`")
         st.divider()
 
@@ -541,28 +578,41 @@ else:
                             
                             final_t = terbilang(int(nom_r)).title() + " Rupiah"
                             
-                            # --- UPLOAD TO DRIVE LOGIC ---
+                            # --- MODIFIKASI: UPLOAD KE DRIVE VIA SCRIPT ---
                             link_drive = "-"
                             if bukti:
                                 try:
-                                    # Menentukan Nama File
+                                    # 1. Siapkan Data File
                                     file_type = bukti.type
                                     ext = file_type.split("/")[-1]
                                     file_name = f"LAMPIRAN_{no_p}.{ext}"
                                     
-                                    # Proses Upload
-                                    service = build('drive', 'v3', credentials=creds)
-                                    file_metadata = {
-                                        'name': file_name,
-                                        'parents': [DRIVE_FOLDER_ID]
+                                    # Convert file ke Base64
+                                    file_content = bukti.getvalue()
+                                    b64_data = base64.b64encode(file_content).decode('utf-8')
+                                    
+                                    # 2. Kirim ke Google Apps Script
+                                    payload = {
+                                        "filename": file_name,
+                                        "filedata": b64_data,
+                                        "mimetype": file_type,
+                                        "folderId": DRIVE_FOLDER_ID
                                     }
-                                    media = MediaIoBaseUpload(bukti, mimetype=file_type)
-                                    file_drive = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
-                                    link_drive = file_drive.get('webViewLink')
+                                    
+                                    with st.spinner("Mengupload ke Drive..."):
+                                        response = requests.post(APPS_SCRIPT_URL, json=payload)
+                                        res_json = response.json()
+                                    
+                                    if res_json.get("status") == "success":
+                                        link_drive = res_json.get("url")
+                                    else:
+                                        st.error(f"Gagal Upload: {res_json.get('message')}")
+                                        st.stop()
+                                        
                                 except Exception as e:
-                                    st.error(f"Gagal Upload ke Drive: {e}")
+                                    st.error(f"Error Koneksi Upload: {e}")
                                     st.stop()
-                            # -----------------------------
+                            # ----------------------------------------------
 
                             sheet.append_row([
                                 tgl_now.strftime("%Y-%m-%d %H:%M:%S"), no_p, kode_store, pic_email, 
@@ -576,7 +626,7 @@ else:
                             tgl_full = tgl_now.strftime("%d/%m/%Y %H:%M")
                             app_link = f"{BASE_URL}?id={no_p}"
                             
-                            # Update Email Body: Lampiran berisi Link Drive
+                            # MODIFIKASI: Body Email (Link Drive)
                             email_body = f"""
                             <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                                 <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {mgr_clean}</div>
