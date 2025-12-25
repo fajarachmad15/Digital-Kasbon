@@ -361,23 +361,29 @@ else:
                             app_link = f"{BASE_URL}?id={no_p}"
                             link_html = "Lihat Lampiran di bawah" if bukti else "-"
                             
-                            # EMAIL ISI TETAP SAMA (SESUAI REQUEST)
+                            # --- PERUBAHAN TAMPILAN EMAIL (MENYATU & SESUAI REQUEST) ---
                             email_body = f"""
-                            <html><body style='font-family: Arial, sans-serif; line-height: 1.6;'>
-                                <p>Dear Bapak / Ibu <b>{mgr_clean}</b></p>
-                                <p>Mohon approvalnya untuk pengajuan kasbon dengan data di bawah ini :</p>
-                                <table style='border-collapse: collapse; width: 100%;'>
-                                    <tr><td style='width: 200px;'><b>Nomor Pengajuan Kasbon</b></td><td>: {no_p}</td></tr>
-                                    <tr><td><b>Tgl dan Jam Pengajuan</b></td><td>: {tgl_full}</td></tr>
-                                    <tr><td><b>Dibayarkan Kepada</b></td><td>: {nama_p} / {nip}</td></tr>
-                                    <tr><td><b>Departement</b></td><td>: {dept}</td></tr>
-                                    <tr><td><b>Senilai</b></td><td>: Rp {int(nom_r):,} ({final_t})</td></tr>
-                                    <tr><td><b>Untuk Keperluan</b></td><td>: {kep}</td></tr>
-                                    <tr><td><b>Approval Pendukung</b></td><td>: {link_html}</td></tr>
-                                    <tr><td><b>Janji Penyelesaian</b></td><td>: {janji.strftime("%d/%m/%Y")}</td></tr>
+                            <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
+                                <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {mgr_clean}</div>
+                                
+                                <div style='margin-bottom: 10px;'>Mohon approvalnya untuk pengajuan kasbon dengan data di bawah ini :</div>
+                                
+                                <table style='border: none; border-collapse: collapse; width: 100%; max-width: 600px;'>
+                                    <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {no_p}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Tgl dan Jam Pengajuan</td><td>: {tgl_full}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Dibayarkan Kepada</td><td>: {nama_p} / {nip}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Departement</td><td>: {dept}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Senilai</td><td>: Rp {int(nom_r):,} ({final_t})</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {kep}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: {link_html}</td></tr>
+                                    <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {janji.strftime("%d/%m/%Y")}</td></tr>
                                 </table>
-                                <p>Silahkan klik <a href='{app_link}'><b>link berikut</b></a> untuk melanjutkan prosesnya</p>
-                                <p>Terima Kasih</p>
+                                
+                                <div style='margin-top: 15px; margin-bottom: 10px;'>
+                                    Silahkan klik <a href='{app_link}' style='text-decoration: none; color: #0000EE;'>link berikut</a> untuk melanjutkan prosesnya
+                                </div>
+                                
+                                <div>Terima Kasih</div>
                             </body></html>
                             """
                             send_email_with_attachment(mgr_map[mgr_f], f"Pengajuan Kasbon {no_p}", email_body, bukti)
