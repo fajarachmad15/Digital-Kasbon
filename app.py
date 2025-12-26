@@ -124,8 +124,8 @@ if 'submitted' not in st.session_state: st.session_state.submitted = False
 if 'data_ringkasan' not in st.session_state: st.session_state.data_ringkasan = {}
 if 'show_errors' not in st.session_state: st.session_state.show_errors = False
 if 'mgr_logged_in' not in st.session_state: st.session_state.mgr_logged_in = False
-if 'cashier_real_logged_in' not in st.session_state: st.session_state.cashier_real_logged_in = False # NEW
-if 'mgr_final_logged_in' not in st.session_state: st.session_state.mgr_final_logged_in = False # NEW
+if 'cashier_real_logged_in' not in st.session_state: st.session_state.cashier_real_logged_in = False
+if 'mgr_final_logged_in' not in st.session_state: st.session_state.mgr_final_logged_in = False
 if 'user_role' not in st.session_state: st.session_state.user_role = ""
 if 'user_nik' not in st.session_state: st.session_state.user_nik = ""
 if 'user_store_code' not in st.session_state: st.session_state.user_store_code = ""
@@ -192,19 +192,18 @@ if query_id:
                         st.error("⛔ NIP tidak cocok dengan data pengajuan!")
                 st.stop()
             
-            # Tampilan Data Bullet Point
+            # Tampilan Data Bullet Point (Revisi)
             st.info(f"### Rincian Pengajuan")
-            c1, c2 = st.columns(2)
-            with c1:
-                st.markdown(f"* **No. Pengajuan:** {query_id}")
-                st.markdown(f"* **Kode Store:** {r_store_code}")
-                st.markdown(f"* **Dibayarkan Kepada:** {r_nama} / {r_nip}")
-                st.markdown(f"* **Departemen:** {r_dept}")
-            with c2:
-                st.markdown(f"* **Nominal:** Rp {r_nominal_awal:,}")
-                st.markdown(f"* **Terbilang:** {r_terbilang_awal}")
-                st.markdown(f"* **Keperluan:** {r_keperluan}")
-                st.markdown(f"* **Janji Penyelesaian:** {r_janji}")
+            st.markdown(f"""
+            - Nomor Pengajuan Kasbon : {query_id}
+            - Tgl dan Jam Pengajuan : {row_data[0]}
+            - Dibayarkan Kepada : {r_nama} / {r_nip}
+            - Departement : {r_dept}
+            - Senilai : Rp {r_nominal_awal:,} ({r_terbilang_awal})
+            - Untuk Keperluan : {r_keperluan}
+            - Approval Pendukung : {r_link_lampiran}
+            - Janji Penyelesaian : {r_janji}
+            """)
             
             st.divider()
 
@@ -569,19 +568,18 @@ if query_id:
             st.error(f"⛔ AKSES DITOLAK! Anda terdaftar di store {user_store_login}, tidak dapat mengakses pengajuan store {store_pengajuan}.")
             st.stop()
 
-        # Tampilan Data Manager/Cashier (Disamakan dengan Ringkasan Pengajuan - Bullet Point)
+        # Tampilan Data Manager/Cashier (Revisi: Bullet Point)
         st.info(f"### Rincian Pengajuan")
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown(f"* **No. Pengajuan:** {query_id}")
-            st.markdown(f"* **Kode Store:** {r_store_code}")
-            st.markdown(f"* **Dibayarkan Kepada:** {r_nama} / {r_nip}")
-            st.markdown(f"* **Departemen:** {r_dept}")
-        with c2:
-            st.markdown(f"* **Nominal:** Rp {r_nominal_awal:,}")
-            st.markdown(f"* **Terbilang:** {r_terbilang_awal}")
-            st.markdown(f"* **Keperluan:** {r_keperluan}")
-            st.markdown(f"* **Janji Penyelesaian:** {r_janji}")
+        st.markdown(f"""
+        - Nomor Pengajuan Kasbon : {query_id}
+        - Tgl dan Jam Pengajuan : {row_data[0]}
+        - Dibayarkan Kepada : {r_nama} / {r_nip}
+        - Departement : {r_dept}
+        - Senilai : Rp {r_nominal_awal:,} ({r_terbilang_awal})
+        - Untuk Keperluan : {r_keperluan}
+        - Approval Pendukung : {r_link_lampiran}
+        - Janji Penyelesaian : {r_janji}
+        """)
         
         st.write(f"**Status Saat Ini:** `{display_status}`")
         st.divider()
@@ -722,17 +720,17 @@ if st.session_state.submitted:
     st.write("---")
     st.subheader("Ringkasan Pengajuan")
     
-    col_res1, col_res2 = st.columns(2)
-    with col_res1:
-        st.markdown(f"* **No. Pengajuan:** {d['no_pengajuan']}")
-        st.markdown(f"* **Kode Store:** {d['kode_store']}")
-        st.markdown(f"* **Dibayarkan Kepada:** {d['nama']} / {d['nip']}")
-        st.markdown(f"* **Departemen:** {d['dept']}")
-    with col_res2:
-        st.markdown(f"* **Nominal:** Rp {int(d['nominal']):,}")
-        st.markdown(f"* **Terbilang:** {d['terbilang']}")
-        st.markdown(f"* **Keperluan:** {d['keperluan']}")
-        st.markdown(f"* **Janji Penyelesaian:** {d['janji']}")
+    # FORMAT RINGKASAN: Bullet Point sesuai request
+    st.markdown(f"""
+    - Nomor Pengajuan Kasbon : {d['no_pengajuan']}
+    - Tgl dan Jam Pengajuan : {d.get('tgl_jam', '-')}
+    - Dibayarkan Kepada : {d['nama']} / {d['nip']}
+    - Departement : {d['dept']}
+    - Senilai : Rp {int(d['nominal']):,} ({d['terbilang']})
+    - Untuk Keperluan : {d['keperluan']}
+    - Approval Pendukung : {d.get('link_pendukung', '-')}
+    - Janji Penyelesaian : {d['janji']}
+    """)
     
     c1, c2 = st.columns(2)
     if c1.button("Buat Pengajuan Baru", use_container_width=True):
@@ -862,7 +860,6 @@ else:
                                 "", "", "Pending", "",
                                 "", "", "Pending",
                                 "", "", "", "", "", "", "", "", "", "Pending",
-                                # Kolom AJ s/d AW (Kosong)
                                 "", "", "", "", "", "", "Pending", "", # AJ-AQ
                                 "", "", "", "", "", "" # AR-AW
                             ])
@@ -893,7 +890,19 @@ else:
                             """
                             send_email_with_attachment(mgr_map[mgr_f], f"Pengajuan Kasbon {no_p}", email_body)
                         
-                            st.session_state.data_ringkasan = {'no_pengajuan': no_p, 'kode_store': kode_store, 'nama': nama_p, 'nip': nip, 'dept': dept, 'nominal': nom_r, 'terbilang': final_t, 'keperluan': kep, 'janji': janji.strftime("%d/%m/%Y")}
+                            st.session_state.data_ringkasan = {
+                                'no_pengajuan': no_p, 
+                                'kode_store': kode_store, 
+                                'nama': nama_p, 
+                                'nip': nip, 
+                                'dept': dept, 
+                                'nominal': nom_r, 
+                                'terbilang': final_t, 
+                                'keperluan': kep, 
+                                'janji': janji.strftime("%d/%m/%Y"),
+                                'tgl_jam': tgl_full,     # WAJIB ADA UNTUK RINGKASAN
+                                'link_pendukung': link_drive # WAJIB ADA UNTUK RINGKASAN
+                            }
                             st.session_state.submitted = True; st.session_state.show_errors = False; st.rerun()
                     except Exception as e: st.error(f"Error Sistem: {e}")
                 else:
