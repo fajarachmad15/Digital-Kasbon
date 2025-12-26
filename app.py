@@ -124,8 +124,8 @@ if 'submitted' not in st.session_state: st.session_state.submitted = False
 if 'data_ringkasan' not in st.session_state: st.session_state.data_ringkasan = {}
 if 'show_errors' not in st.session_state: st.session_state.show_errors = False
 if 'mgr_logged_in' not in st.session_state: st.session_state.mgr_logged_in = False
-if 'cashier_real_logged_in' not in st.session_state: st.session_state.cashier_real_logged_in = False
-if 'mgr_final_logged_in' not in st.session_state: st.session_state.mgr_final_logged_in = False
+if 'cashier_real_logged_in' not in st.session_state: st.session_state.cashier_real_logged_in = False # NEW
+if 'mgr_final_logged_in' not in st.session_state: st.session_state.mgr_final_logged_in = False # NEW
 if 'user_role' not in st.session_state: st.session_state.user_role = ""
 if 'user_nik' not in st.session_state: st.session_state.user_nik = ""
 if 'user_store_code' not in st.session_state: st.session_state.user_store_code = ""
@@ -169,10 +169,9 @@ if query_id:
 
         # Realisasi: Z=25 ... AI=34
         status_real = row_data[34] if len(row_data) > 34 else "Pending"
-        r_link_realisasi = row_data[33] if len(row_data) > 33 else "#" # AH=33 (Column 34 in sheet)
-        # Note: Index Python 33 = Column AH (34), Index 34 = AI (35 Status)
-
-        # Verifikasi Realisasi Cashier: AJ=35 s/d AQ=42
+        # AH=33 (Link Bukti Realisasi)
+        
+        # Verifikasi Realisasi Cashier: AJ=35 s/d AQ=42 (0-based)
         status_verif_real = row_data[41] if len(row_data) > 41 else "Pending" # AP=41
         
         # --- LOGIKA TAMPILAN REQUESTER (terima / realisasi) ---
@@ -333,6 +332,7 @@ if query_id:
         elif query_mode == "verif_realisasi":
             st.markdown('<span class="store-header">Portal Verifikasi Realisasi Kasbon</span>', unsafe_allow_html=True)
             
+            # Pastikan Portal tidak dapat dikases sebelum pemohon melakukan realisasi
             if status_real != "Terrealisasi":
                 st.warning("⚠️ Pemohon belum melakukan realisasi.")
                 st.stop()
@@ -341,7 +341,7 @@ if query_id:
                 st.success(f"✅ Realisasi sudah diverifikasi dengan status: {status_verif_real}")
                 st.stop()
 
-            # LOGIN CASHIER
+            # LOGIN CASHIER (CREDENTIAL CHECK)
             if not st.session_state.cashier_real_logged_in:
                 st.subheader("🔐 Login Cashier")
                 v_nik = st.text_input("NIP (6 Digit)", max_chars=6)
@@ -349,7 +349,7 @@ if query_id:
                 if st.button("Masuk"):
                     records = client.open_by_key(SPREADSHEET_ID).worksheet("DATABASE_USER").get_all_records()
                     user = next((r for r in records if str(r['NIK']).zfill(6) == v_nik and str(r['Password']) == v_pass), None)
-                    if user and (user['Role'] == 'Senior Cashier'): # Allow generic cashier or specific
+                    if user and (user['Role'] == 'Senior Cashier'):
                         st.session_state.cashier_real_logged_in = True
                         st.session_state.user_nik = str(user['NIK']).zfill(6)
                         st.rerun()
@@ -358,10 +358,7 @@ if query_id:
 
             # TAMPILAN DATA (BULLET POINT)
             st.info(f"### Data Realisasi")
-            # Ambil Data Realisasi dari row_data
-            # Z=25 (idx 25) -> AI=34 (idx 34)
-            # AD=29 (Uang Kembali), AH=33 (Link Bukti)
-            
+            # AH=33 (Link Bukti Realisasi)
             link_real_lampiran = row_data[33] if len(row_data) > 33 else "#"
             
             st.markdown(f"""
@@ -385,10 +382,9 @@ if query_id:
             if status_pilihan == "Tidak Sesuai":
                 reason_verif = st.text_area("Reason (Wajib diisi)", placeholder="Jelaskan alasan ketidaksesuaian...")
             
-            # Field Read Only (Ambil dari data realisasi)
-            u_kembali = row_data[29] if len(row_data) > 29 else "0" # AD (Index 29 ? Wait. A=0. AD is index 29)
-            # Wait check indices again.
-            # A=0, Z=25. AA=26, AB=27, AC=28, AD=29 (Benar).
+            # Field Read Only (Ambil dari data realisasi DB)
+            # AD=29 (Uang Kembali), AE=30, AF=31 (Uang Terima), AG=32
+            u_kembali = row_data[29] if len(row_data) > 29 else "0"
             t_kembali = row_data[30] if len(row_data) > 30 else "-"
             u_terima = row_data[31] if len(row_data) > 31 else "0"
             t_terima = row_data[32] if len(row_data) > 32 else "-"
@@ -420,17 +416,18 @@ if query_id:
 
                 # KIRIM EMAIL KE MANAGER
                 try:
-                    # Cari Email Manager dari Log Approval Manager (Kolom P/Index 15 rekam NIP, tapi kita butuh email)
-                    # Cara lain: Ambil dari Data User berdasarkan Store Code & Role Manager
+                    # Cari Email Manager (Bisa ambil dari login DB user berdasarkan store code)
                     user_records = client.open_by_key(SPREADSHEET_ID).worksheet("DATABASE_USER").get_all_records()
-                    mgr_email = next((u['Email'] for u in user_records if str(u['Kode_Store']) == r_store_code and u['Role'] == 'Manager'), SENDER_EMAIL)
+                    mgr_data = next((u for u in user_records if str(u['Kode_Store']) == r_store_code and u['Role'] == 'Manager'), None)
+                    mgr_email = mgr_data['Email'] if mgr_data else SENDER_EMAIL
+                    mgr_nama = mgr_data['Nama Lengkap'] if mgr_data else "Manager"
                     
                     # Link Final Cek
                     link_final = f"{BASE_URL}?id={query_id}&mode=final_cek"
                     
                     email_mgr_body = f"""
                     <html><body style='font-family: Arial, sans-serif; font-size: 14px;'>
-                        <div style='margin-bottom: 10px;'>Dear Bapak / Ibu Manager</div>
+                        <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {mgr_nama}</div>
                         <div style='margin-bottom: 10px;'>Mohon melakukan Final Cek untuk Laporan realisasi kasbon dengan data di bawah ini :</div>
                         
                         <table style='border: none; border-collapse: collapse; width: 100%; max-width: 600px;'>
@@ -517,7 +514,7 @@ if query_id:
                 
                 tgl_final = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
                 
-                # Update Gsheet (AR=Column 44)
+                # Update Gsheet (AR=Column 44 1-based)
                 # AR: Timestamp, AS: NIP, AT: Status Qty, AU: Reason, AV: Status Item, AW: Reason
                 sheet.update_cell(cell.row, 44, tgl_final)                  # AR
                 sheet.update_cell(cell.row, 45, st.session_state.user_nik)  # AS
