@@ -204,23 +204,25 @@ if query_id:
             
             st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
             
-            # 3. User Recognition (Skip Login if Done)
-            # Jika user yang login == Manager yang ditunjuk DAN status sudah approved (Logic pencegahan)
-            if pic_email == target_manager_email and status_mgr == "APPROVED":
-                st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda. Status saat ini: {status_mgr}")
-                st.stop()
+            # User Recognition & Task Completion Check
+            if pic_email == target_manager_email and status_mgr != "Pending":
+                 st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda untuk pengajuan ini. Status saat ini: {status_mgr}")
+                 st.stop()
 
             # LOGIN MGR
             if not st.session_state.mgr_logged_in:
                 st.subheader("🔐 Verifikasi Manager")
-                st.caption(f"Verifikasi untuk: {assigned_manager_str}")
+                # Hide NIK in caption for privacy
+                mgr_clean_name = assigned_manager_str.split(" - ")[1] if " - " in assigned_manager_str else assigned_manager_str
+                st.caption(f"Verifikasi untuk: {mgr_clean_name}")
+                
                 v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
                 v_pass = st.text_input("Password", type="password")
                 
                 if st.button("Masuk & Verifikasi", type="primary", use_container_width=True):
-                    # 1. Strict Login Validation
+                    # STRICT LOGIN VALIDATION
                     if v_nik != target_manager_nik:
-                        st.error("⛔ Anda tidak berwenang memproses pengajuan ini (ID Kasbon ini ditugaskan ke NIK lain).")
+                        st.error("⛔ Anda tidak berwenang memproses pengajuan ini (NIK tidak sesuai penugasan).")
                         st.stop()
                         
                     if len(v_nik) == 6 and len(v_pass) >= 6:
@@ -241,7 +243,7 @@ if query_id:
                 st.error("⛔ AKSES DITOLAK! Store tidak sesuai.")
                 st.stop()
 
-            # Tampilan Data (Standardization Bullet Point)
+            # Tampilan Data (Bullet Point Standard)
             st.info(f"### Rincian Pengajuan")
             st.markdown(f"""
             * **Nomor Pengajuan Kasbon** : {query_id}
@@ -270,7 +272,7 @@ if query_id:
                         cashier_name = assigned_cashier_str.split(" - ")[1].split(" (")[0]
                         link_verif_kasbon = f"{BASE_URL}?id={query_id}"
                         
-                        # 4. Restore Professional Email (HTML Table)
+                        # Email HTML Professional - Strict Wording
                         email_msg = f"""
                         <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                             <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {cashier_name}</div>
@@ -285,11 +287,11 @@ if query_id:
                                 <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: <a href="{r_link_lampiran}">{r_link_lampiran}</a></td></tr>
                                 <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {r_janji}</td></tr>
                             </table>
-                            <div style='margin-top: 15px; margin-bottom: 10px;'>
+                            <div style='margin-top: 15px; margin-bottom: 5px;'>
                                 Silahkan klik <a href='{link_verif_kasbon}' style='text-decoration: none; color: #0000EE; font-weight: bold;'>Link Verifikasi Kasbon</a> untuk melanjutkan prosesnya.
                             </div>
                             <div style='margin-bottom: 10px;'>
-                                Kemudian klik <b>Link Verifikasi Realisasi Kasbon</b> (link yang sama) setelah pemohon melakukan realisasi.
+                                Kemudian klik <a href='{link_verif_kasbon}' style='text-decoration: none; color: #0000EE; font-weight: bold;'>Link Verifikasi Realisasi Kasbon</a> (link yang sama) setelah pemohon melakukan realisasi.
                             </div>
                             <div>Terima Kasih</div>
                         </body></html>
@@ -297,10 +299,10 @@ if query_id:
                         send_email_with_attachment(target_cashier_email, f"Verifikasi Kasbon {query_id}", email_msg)
                     except: pass
                     
-                    st.success("Berhasil! Tugas Anda telah selesai.")
+                    st.success("✅ Berhasil! Tugas Anda untuk ID Kasbon ini telah selesai.")
                     st.balloons()
                     time.sleep(2)
-                    st.rerun()
+                    st.rerun() # Refresh to hit User Recognition block
 
                 if b2.button("✕ REJECT", use_container_width=True):
                     if not alasan: st.error("Harap isi alasan reject!"); st.stop()
@@ -323,22 +325,25 @@ if query_id:
             
             st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
 
-            # 3. User Recognition
-            if pic_email == target_cashier_email and status_cashier == "APPROVED":
-                st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda. Status saat ini: {status_cashier}")
+            # User Recognition
+            if pic_email == target_cashier_email and status_cashier != "Pending":
+                st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda untuk pengajuan ini. Status saat ini: {status_cashier}")
                 st.stop()
 
             # LOGIN CSR
             if not st.session_state.mgr_logged_in:
                 st.subheader("🔐 Verifikasi Cashier")
-                st.caption(f"Verifikasi untuk: {assigned_cashier_str}")
+                # Hide NIK in caption
+                csr_clean_name = assigned_cashier_str.split(" - ")[1] if " - " in assigned_cashier_str else assigned_cashier_str
+                st.caption(f"Verifikasi untuk: {csr_clean_name}")
+                
                 v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
                 v_pass = st.text_input("Password", type="password")
                 
                 if st.button("Masuk & Verifikasi", type="primary", use_container_width=True):
-                    # 1. Strict Login Validation
+                    # STRICT LOGIN VALIDATION
                     if v_nik != target_cashier_nik:
-                        st.error("⛔ Anda tidak berwenang memproses pengajuan ini (ID Kasbon ini ditugaskan ke NIK lain).")
+                        st.error("⛔ Anda tidak berwenang memproses pengajuan ini (NIK tidak sesuai penugasan).")
                         st.stop()
 
                     if len(v_nik) == 6 and len(v_pass) >= 6:
@@ -359,7 +364,7 @@ if query_id:
                 st.error("⛔ AKSES DITOLAK! Store tidak sesuai.")
                 st.stop()
 
-            # Tampilan Data
+            # Tampilan Data (Bullet Point)
             st.info(f"### Rincian Pengajuan")
             st.markdown(f"""
             * **Nomor Pengajuan Kasbon** : {query_id}
@@ -387,7 +392,7 @@ if query_id:
                     
                     try:
                         link_portal = f"{BASE_URL}?id={query_id}"
-                        # 4. Restore Professional Email (HTML Table)
+                        # Email HTML Professional - Strict Wording
                         email_req_body = f"""
                         <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                             <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {r_nama}</div>
@@ -403,10 +408,10 @@ if query_id:
                                 <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {r_janji}</td></tr>
                             </table>
                             <div style='margin-top: 20px; margin-bottom: 5px;'>
-                                Klik <a href='{link_portal}' style='text-decoration: none; color: #0000EE; font-weight:bold;'>Link Diterima</a> untuk konfirmasi uang diterima.
+                                Klik <a href='{link_portal}' style='text-decoration: none; color: #0000EE; font-weight:bold;'>Link Diterima</a> sebagai konfirmasi uang telah diterima.
                             </div>
                             <div style='margin-bottom: 20px;'>
-                                Dan <a href='{link_portal}' style='text-decoration: none; color: #0000EE; font-weight:bold;'>Link Realisasi</a> ketika uang sudah selesai digunakan.
+                                Dan Klik <a href='{link_portal}' style='text-decoration: none; color: #0000EE; font-weight:bold;'>Link Realisasi</a> ketika uang sudah selesai digunakan.
                             </div>
                             <div>Terima Kasih</div>
                         </body></html>
@@ -414,7 +419,7 @@ if query_id:
                         send_email_with_attachment(r_req_email, f"Kasbon Disetujui {query_id}", email_req_body)
                     except: pass
                     
-                    st.success("Berhasil! Tugas Anda telah selesai.")
+                    st.success("✅ Berhasil! Tugas Anda untuk ID Kasbon ini telah selesai.")
                     st.balloons()
                     time.sleep(2)
                     st.rerun()
@@ -440,16 +445,18 @@ if query_id:
             
             st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
             
+            # User Recognition
+            # Note: Pemohon biasanya pakai email pic_email, kalau dia sudah klik terima, status_terima != pending, jadi blok ini auto skip.
+            
             # LOGIN NIP + DOUBLE AUTH
             if not st.session_state.portal_verified:
                 st.info("🔒 Untuk keamanan, masukkan NIP Anda dan Password (6 karakter awal email login).")
                 c_a, c_b = st.columns(2)
                 nip_input = c_a.text_input("NIP Pemohon", max_chars=6)
-                # 2. Double Authentication (Field Password)
+                # Requester Password Logic
                 pass_input = c_b.text_input("Password (6 char awal email)", type="password", max_chars=6)
                 
                 if st.button("Masuk Portal"):
-                    # 2. Logic Double Auth
                     correct_password = pic_email[:6]
                     if nip_input == r_nip and pass_input == correct_password:
                         st.session_state.portal_verified = True
@@ -478,7 +485,7 @@ if query_id:
                 sheet.update_cell(cell.row, 23, tgl_terima) 
                 sheet.update_cell(cell.row, 24, r_nip)      
                 sheet.update_cell(cell.row, 25, "Sudah diterima") 
-                st.success("Berhasil! Tugas Anda telah selesai.")
+                st.success("✅ Berhasil! Tugas Anda untuk ID Kasbon ini telah selesai.")
                 st.balloons()
                 time.sleep(2)
                 st.rerun()
@@ -496,11 +503,10 @@ if query_id:
                 st.info("🔒 Untuk keamanan, masukkan NIP Anda dan Password (6 karakter awal email login).")
                 c_a, c_b = st.columns(2)
                 nip_input = c_a.text_input("NIP Pemohon", max_chars=6)
-                # 2. Double Authentication
+                # Requester Password Logic
                 pass_input = c_b.text_input("Password (6 char awal email)", type="password", max_chars=6)
                 
                 if st.button("Masuk Portal"):
-                    # 2. Logic Double Auth
                     correct_password = pic_email[:6]
                     if nip_input == r_nip and pass_input == correct_password:
                         st.session_state.portal_verified = True
@@ -595,7 +601,7 @@ if query_id:
                         sheet.update_cell(cell.row, 33, txt_terima)
                         sheet.update_cell(cell.row, 34, link_bukti)
                         sheet.update_cell(cell.row, 35, "Terrealisasi")
-                        st.success("Berhasil! Tugas Anda telah selesai.")
+                        st.success("✅ Berhasil! Tugas Anda untuk ID Kasbon ini telah selesai.")
                         st.balloons()
                         time.sleep(2)
                         st.rerun()
@@ -610,21 +616,24 @@ if query_id:
             
             st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
             
-            # 3. User Recognition
+            # User Recognition
             if pic_email == target_cashier_email and status_verif_real != "Pending":
-                 st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda. Status saat ini: {status_verif_real}")
+                 st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda untuk pengajuan ini. Status saat ini: {status_verif_real}")
                  st.stop()
 
             # LOGIN CASHIER
             if not st.session_state.cashier_real_logged_in:
                 st.subheader("🔐 Login Cashier")
-                st.caption(f"Verifikasi untuk: {assigned_cashier_str}")
+                # Hide NIK in caption
+                csr_clean_name = assigned_cashier_str.split(" - ")[1] if " - " in assigned_cashier_str else assigned_cashier_str
+                st.caption(f"Verifikasi untuk: {csr_clean_name}")
+                
                 v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
                 v_pass = st.text_input("Password", type="password")
                 if st.button("Masuk"):
-                    # 1. Strict Login Validation
+                    # STRICT LOGIN VALIDATION
                     if v_nik != target_cashier_nik:
-                        st.error("⛔ Anda tidak berwenang memproses pengajuan ini (ID Kasbon ini ditugaskan ke NIK lain).")
+                        st.error("⛔ Anda tidak berwenang memproses pengajuan ini (NIK tidak sesuai penugasan).")
                         st.stop()
 
                     records = client.open_by_key(SPREADSHEET_ID).worksheet("DATABASE_USER").get_all_records()
@@ -636,7 +645,7 @@ if query_id:
                     else: st.error("Login gagal atau akses ditolak (Bukan Cashier).")
                 st.stop()
 
-            # Tampilan Data (Standardized)
+            # Tampilan Data
             st.info(f"### Rincian Pengajuan")
             st.markdown(f"""
             * **Nomor Pengajuan Kasbon** : {query_id}
@@ -655,8 +664,7 @@ if query_id:
             st.markdown("### Verifikasi Data")
             status_pilihan = st.radio("Apakah status realisasi sesuai?", ["Ya, Sesuai", "Tidak Sesuai"])
             
-            # 5. Reactive Terbilang
-            # Jika 'Ya, Sesuai', disabled=True. Jika 'Tidak', disabled=False.
+            # 5. Reactive Terbilang Logic
             is_disabled = True if status_pilihan == "Ya, Sesuai" else False
             
             reason_verif = "-"
@@ -669,12 +677,11 @@ if query_id:
             
             c_al, c_am = st.columns(2)
             with c_al:
-                # 5. Reactive Terbilang Logic: Streamlit reruns on input change, updating terbilang below immediately
+                # Reactive: When user types, streamlit reruns, and st.caption below updates immediately
                 u_kembali_input = st.number_input("Uang Dikembalikan", value=u_kembali_db, disabled=is_disabled, step=1)
                 st.caption(terbilang(u_kembali_input).title() + " Rupiah")
                 
             with c_am:
-                # 5. Reactive Terbilang Logic
                 u_terima_input = st.number_input("Uang Diterima", value=u_terima_db, disabled=is_disabled, step=1)
                 st.caption(terbilang(u_terima_input).title() + " Rupiah")
             
@@ -706,7 +713,6 @@ if query_id:
                     
                     link_final = f"{BASE_URL}?id={query_id}"
                     
-                    # 4. Restore Professional Email (HTML Table)
                     email_mgr_body = f"""
                     <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                         <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {mgr_nama}</div>
@@ -730,7 +736,7 @@ if query_id:
                     send_email_with_attachment(mgr_email, f"Final Cek Laporan Realisasi Kasbon {query_id}", email_mgr_body)
                 except: pass
 
-                st.success("Berhasil! Tugas Anda telah selesai.")
+                st.success("✅ Berhasil! Tugas Anda untuk ID Kasbon ini telah selesai.")
                 st.balloons()
                 time.sleep(2)
                 st.rerun()
@@ -743,20 +749,21 @@ if query_id:
             
             st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
             
-            # 3. User Recognition
+            # User Recognition
             if pic_email == target_manager_email:
-                pass # Manager masuk, tapi harus login ulang untuk keamanan final sign-off
+                pass # Manager harus login ulang untuk final approval keamanan
 
             # LOGIN MANAGER
             if not st.session_state.mgr_final_logged_in:
                 st.subheader("🔐 Login Manager")
-                st.caption(f"Verifikasi untuk: {assigned_manager_str}")
+                mgr_clean_name = assigned_manager_str.split(" - ")[1] if " - " in assigned_manager_str else assigned_manager_str
+                st.caption(f"Verifikasi untuk: {mgr_clean_name}")
                 v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
                 v_pass = st.text_input("Password", type="password")
                 if st.button("Masuk"):
-                    # 1. Strict Login Validation
+                    # STRICT LOGIN VALIDATION
                     if v_nik != target_manager_nik:
-                        st.error("⛔ Anda tidak berwenang memproses pengajuan ini (ID Kasbon ini ditugaskan ke NIK lain).")
+                        st.error("⛔ Anda tidak berwenang memproses pengajuan ini (NIK tidak sesuai penugasan).")
                         st.stop()
                         
                     records = client.open_by_key(SPREADSHEET_ID).worksheet("DATABASE_USER").get_all_records()
@@ -768,7 +775,7 @@ if query_id:
                     else: st.error("Login gagal atau akses ditolak (Bukan Manager).")
                 st.stop()
 
-            # Tampilan Data (Standardized)
+            # Tampilan Data
             st.info(f"### Rincian Pengajuan")
             st.markdown(f"""
             * **Nomor Pengajuan Kasbon** : {query_id}
@@ -812,7 +819,7 @@ if query_id:
                 sheet.update_cell(cell.row, 49, q2_reason)                  # AW
                 
                 # 7. Alur Status Final
-                st.success("Berhasil! Tugas Anda telah selesai. Status Kasbon Completed."); 
+                st.success("✅ Berhasil! Tugas Anda telah selesai. Status Kasbon Completed."); 
                 st.balloons()
                 time.sleep(2)
                 st.rerun()
@@ -1003,7 +1010,6 @@ else:
                             tgl_full = tgl_now.strftime("%d/%m/%Y %H:%M")
                             app_link = f"{BASE_URL}?id={no_p}"
                             
-                            # 4. Restore Professional Email (HTML Table)
                             email_body = f"""
                             <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                                 <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {mgr_clean}</div>
