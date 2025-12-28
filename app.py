@@ -41,9 +41,10 @@ st.markdown("""
 
     /* INSTRUKSI 2: CSS KHUSUS TERBILANG (150% Size, Adaptive Color) */
     .terbilang-text {
-        font-size: 150%; 
+        font-size: 150% !important; 
         font-weight: bold;
         margin-bottom: 10px;
+        line-height: 1.5;
     }
     @media (prefers-color-scheme: dark) {
         .terbilang-text { color: #FFFFFF !important; }
@@ -187,31 +188,28 @@ if query_id:
 
         # =========================================================================
         # MAPPING INDEX BARU SESUAI KITAB SUCI (READING)
+        # UPDATE LOGIC: Read "BLANK" (Empty String) as Waiting/Pending
         # =========================================================================
         
         # Approval MGR: O(14)=StatEmail, P(15)=Tgl, Q(16)=NIK, R(17)=Status, S(18)=Reason
-        status_mgr = row_data[17] if len(row_data) > 17 else "Pending"
+        status_mgr = row_data[17] if len(row_data) > 17 else ""
         reason_mgr = row_data[18] if len(row_data) > 18 else ""
 
         # Verifikasi Cashier: T(19)=StatEmail, U(20)=Tgl, V(21)=NIK, W(22)=Status, X(23)=Reason
-        status_cashier = row_data[22] if len(row_data) > 22 else "Pending"
+        status_cashier = row_data[22] if len(row_data) > 22 else ""
         reason_csr = row_data[23] if len(row_data) > 23 else ""
 
         # Uang Diterima: Y(24)=StatEmail, Z(25)=Tgl, AA(26)=NIP, AB(27)=Status
-        status_terima = row_data[27] if len(row_data) > 27 else "Pending"
+        status_terima = row_data[27] if len(row_data) > 27 else ""
 
         # Realisasi: AL(37)=Status Realisasi
-        # AC s/d AL (Geser semua)
-        # AC(28) start data realisasi
-        status_real = row_data[37] if len(row_data) > 37 else "Pending"
+        status_real = row_data[37] if len(row_data) > 37 else ""
         
-        # Link Lampiran Realisasi ada di Column AK? 
-        # Cek urutan lama: Lampiran di index terakhir sebelum Status Realisasi. 
-        # Jika Status Realisasi di 37 (AL), maka Link di 36 (AK).
+        # Link Lampiran Realisasi ada di Column AK
         link_real_lampiran = row_data[36] if len(row_data) > 36 else "-"
         
         # Verifikasi Realisasi Cashier: AT(45)=Status
-        status_verif_real = row_data[45] if len(row_data) > 45 else "Pending"
+        status_verif_real = row_data[45] if len(row_data) > 45 else ""
         
         # Final Cek Manager: AV(47)=Timestamp
         final_cek_timestamp = row_data[47] if len(row_data) > 47 else ""
@@ -221,7 +219,8 @@ if query_id:
         # =========================================================================
 
         # --- KONDISI 1: APPROVAL MANAGER ---
-        if status_mgr == "Pending":
+        # Logic: Status R kosong atau "Pending"
+        if status_mgr in ["", "Pending"]:
             judul_portal = "Portal Approval Manager"
             display_status = "Status Kasbon: Waiting Manager Approval"
             
@@ -235,14 +234,13 @@ if query_id:
             # ====================
 
             # User Recognition
-            if pic_email == target_manager_email and status_mgr != "Pending":
+            if pic_email == target_manager_email and status_mgr not in ["", "Pending"]:
                  st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda untuk pengajuan ini. Status saat ini: {status_mgr}")
                  st.stop()
 
             # LOGIN MGR
             if not st.session_state.mgr_logged_in:
                 st.subheader("🔐 Verifikasi Manager")
-                # Hide NIK in caption for privacy
                 mgr_clean_name = assigned_manager_str.split(" - ")[1] if " - " in assigned_manager_str else assigned_manager_str
                 st.caption(f"Verifikasi untuk: {mgr_clean_name}")
                 
@@ -301,10 +299,11 @@ if query_id:
                     tgl = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
                     
                     # GROUP APPROVAL MANAGER - WRITE
-                    sheet.update_cell(cell.row, 16, tgl)                       # Kolom P
+                    # INSTRUKSI: Col R = "Approved"
+                    sheet.update_cell(cell.row, 16, tgl)                        # Kolom P
                     sheet.update_cell(cell.row, 17, st.session_state.user_nik) # Kolom Q
-                    sheet.update_cell(cell.row, 18, "APPROVED")                # Kolom R
-                    sheet.update_cell(cell.row, 19, "-")                       # Kolom S
+                    sheet.update_cell(cell.row, 18, "Approved")                # Kolom R
+                    sheet.update_cell(cell.row, 19, "-")                        # Kolom S
                     
                     try:
                         cashier_name = assigned_cashier_str.split(" - ")[1].split(" (")[0]
@@ -347,9 +346,11 @@ if query_id:
                 if b2.button("✕ REJECT", use_container_width=True):
                     if not alasan: st.error("Harap isi alasan reject!"); st.stop()
                     tgl = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # INSTRUKSI: Col R = "Reject"
                     sheet.update_cell(cell.row, 16, tgl)
                     sheet.update_cell(cell.row, 17, st.session_state.user_nik)
-                    sheet.update_cell(cell.row, 18, "REJECTED")
+                    sheet.update_cell(cell.row, 18, "Reject")
                     sheet.update_cell(cell.row, 19, alasan)
                     st.error("Pengajuan telah di-Reject.")
                     time.sleep(2)
@@ -359,7 +360,8 @@ if query_id:
 
 
         # --- KONDISI 2: VERIFIKASI CASHIER ---
-        elif status_mgr == "APPROVED" and status_cashier == "Pending":
+        # Logic: Status R "Approved", Status W kosong/Pending
+        elif status_mgr == "Approved" and status_cashier in ["", "Pending"]:
             judul_portal = "Portal Verifikasi Cashier"
             display_status = "Status Kasbon: Waiting Cashier Verification"
             
@@ -375,14 +377,13 @@ if query_id:
             # ====================
 
             # User Recognition
-            if pic_email == target_cashier_email and status_cashier != "Pending":
+            if pic_email == target_cashier_email and status_cashier not in ["", "Pending"]:
                 st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda untuk pengajuan ini. Status saat ini: {status_cashier}")
                 st.stop()
 
             # LOGIN CSR
             if not st.session_state.mgr_logged_in:
                 st.subheader("🔐 Verifikasi Cashier")
-                # Hide NIK in caption
                 csr_clean_name = assigned_cashier_str.split(" - ")[1] if " - " in assigned_cashier_str else assigned_cashier_str
                 st.caption(f"Verifikasi untuk: {csr_clean_name}")
                 
@@ -442,9 +443,10 @@ if query_id:
                     tgl = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
                     
                     # GROUP VERIFIKASI CASHIER - WRITE
+                    # INSTRUKSI: Col W = "Verifikasi Approved"
                     sheet.update_cell(cell.row, 21, tgl)                        # Kolom U
                     sheet.update_cell(cell.row, 22, st.session_state.user_nik)  # Kolom V
-                    sheet.update_cell(cell.row, 23, "APPROVED")                 # Kolom W
+                    sheet.update_cell(cell.row, 23, "Verifikasi Approved")      # Kolom W
                     sheet.update_cell(cell.row, 24, "-")                        # Kolom X
                     
                     try:
@@ -486,9 +488,11 @@ if query_id:
                 if k2.button("✕ VERIFIKASI REJECT", use_container_width=True):
                     if not alasan_c: st.error("Harap isi alasan reject!"); st.stop()
                     tgl = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # INSTRUKSI: Col W = "Verifikasi Reject"
                     sheet.update_cell(cell.row, 21, tgl)
                     sheet.update_cell(cell.row, 22, st.session_state.user_nik)
-                    sheet.update_cell(cell.row, 23, "REJECTED")
+                    sheet.update_cell(cell.row, 23, "Verifikasi Reject")
                     sheet.update_cell(cell.row, 24, alasan_c)
                     st.error("Verifikasi Ditolak.")
                     time.sleep(2)
@@ -498,7 +502,7 @@ if query_id:
 
 
         # --- KONDISI 3: KONFIRMASI UANG DITERIMA ---
-        elif status_cashier == "APPROVED" and status_terima == "Pending":
+        elif status_cashier == "Verifikasi Approved" and status_terima in ["", "Pending"]:
             judul_portal = "Portal Konfirmasi Uang Diterima"
             display_status = "Status Kasbon: Waiting Requester Confirmation"
             
@@ -509,13 +513,10 @@ if query_id:
                 st.info(f"ℹ️ Uang kasbon telah disiapkan/dicairkan. Menunggu konfirmasi penerimaan oleh Requester.")
                 st.warning(f"🔒 Halaman ini dikhususkan untuk Requester: {r_req_email}")
                 if pic_email == target_cashier_email:
-                      st.success("✅ Terima kasih, tugas Verifikasi Anda selesai. Silakan infokan Requester untuk konfirmasi.")
+                       st.success("✅ Terima kasih, tugas Verifikasi Anda selesai. Silakan infokan Requester untuk konfirmasi.")
                 st.stop()
             # ====================
 
-            # User Recognition
-            # Note: Pemohon biasanya pakai email pic_email, kalau dia sudah klik terima, status_terima != pending, jadi blok ini auto skip.
-            
             # LOGIN NIP + DOUBLE AUTH
             if not st.session_state.portal_verified:
                 st.info("🔒 Untuk keamanan, masukkan NIP Anda dan Password (6 karakter awal email login).")
@@ -568,7 +569,7 @@ if query_id:
 
 
         # --- KONDISI 4: INPUT REALISASI ---
-        elif status_terima == "Sudah diterima" and status_real == "Pending":
+        elif status_terima == "Sudah diterima" and status_real in ["", "Pending"]:
             judul_portal = "Portal Realisasi Kasbon"
             display_status = "Status Kasbon: Waiting Realization Input"
             
@@ -713,7 +714,7 @@ if query_id:
 
 
         # --- KONDISI 5: VERIFIKASI REALISASI CASHIER ---
-        elif status_real == "Terrealisasi" and status_verif_real == "Pending":
+        elif status_real == "Terrealisasi" and status_verif_real in ["", "Pending"]:
             judul_portal = "Portal Verifikasi Realisasi Kasbon"
             display_status = "Status Kasbon: Waiting Cashier Verification (Realisasi)"
             
@@ -729,7 +730,7 @@ if query_id:
             # ====================
 
             # User Recognition
-            if pic_email == target_cashier_email and status_verif_real != "Pending":
+            if pic_email == target_cashier_email and status_verif_real not in ["", "Pending"]:
                  st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda untuk pengajuan ini. Status saat ini: {status_verif_real}")
                  st.stop()
 
@@ -946,10 +947,16 @@ if query_id:
             bukti_revisi = st.file_uploader("Revisi Bukti Realisasi", type=['png','jpg','jpeg','pdf'])
 
             if st.button("Posting", type="primary"):
+                # VALIDASI TEXT REASON
                 if (q1_ans == "Tidak Sesuai" and not q1_reason) or (q2_ans == "Tidak Sesuai" and not q2_reason):
                     st.error("Harap isi reason jika memilih Tidak Sesuai.")
                     st.stop()
                 
+                # INSTRUKSI 3: MANDATORI UPLOAD JIKA TIDAK SESUAI
+                if (q1_ans == "Tidak Sesuai" or q2_ans == "Tidak Sesuai") and not bukti_revisi:
+                    st.error("⚠️ Karena ada ketidaksesuaian, Wajib Upload Bukti Revisi!")
+                    st.stop()
+
                 # Logic Upload Revisi
                 link_revisi = "-"
                 if bukti_revisi:
@@ -1015,10 +1022,10 @@ if query_id:
             st.divider()
 
         # --- KONDISI REJECTED (Fallback) ---
-        elif status_mgr == "REJECTED" or status_cashier == "REJECTED":
+        elif status_mgr == "Reject" or status_cashier == "Verifikasi Reject":
              st.error("Status Kasbon: REJECTED")
-             if status_mgr == "REJECTED": st.write(f"Reason Manager: {reason_mgr}")
-             if status_cashier == "REJECTED": st.write(f"Reason Cashier: {reason_csr}")
+             if status_mgr == "Reject": st.write(f"Reason Manager: {reason_mgr}")
+             if status_cashier == "Verifikasi Reject": st.write(f"Reason Cashier: {reason_csr}")
 
     except Exception as e: st.error(f"Error Database/System: {e}")
     st.stop()
@@ -1163,21 +1170,17 @@ else:
                                     st.error(f"Error Koneksi Upload: {e}")
                                     st.stop()
                             
-                            # INSTRUKSI 3: WRITE INDEX BARU (APPEND ROW)
-                            # Kolom O (15) = Status Email Mgr
-                            # Kolom T (20) = Status Email Cashier
-                            # Kolom Y (25) = Status Email Pemohon
-                            # Kolom AM (39) = Status Email Realisasi
-                            
+                            # INSTRUKSI 2: DEFAULT KOSONG JIKA BELUM DIISI (BLANK "")
+                            # Kolom R (18), W (23), AB (28), AL (38), AT (46)
                             sheet.append_row([
                                 tgl_now.strftime("%Y-%m-%d %H:%M:%S"), no_p, kode_store, pic_email, 
                                 nama_p, nip, dept, nom_r, final_t, kep, link_drive, 
                                 janji.strftime("%d/%m/%Y"), sc_f, mgr_f, 
-                                "Tekirim ke Mgr", "", "", "Pending", "", # O-S
-                                "", "", "", "Pending", "", # T-X
-                                "", "", "", "Pending", # Y-AB
-                                "", "", "", "", "", "", "", "", "", "Pending", "", # AC-AM
-                                "", "", "", "", "", "", "Pending", "", # AN-AU
+                                "Tekirim ke Mgr", "", "", "", "", # O-S (R=Blank)
+                                "", "", "", "", "", # T-X (W=Blank)
+                                "", "", "", "", # Y-AB (AB=Blank)
+                                "", "", "", "", "", "", "", "", "", "", "", # AC-AM (AL=Blank)
+                                "", "", "", "", "", "", "", "", # AN-AU (AT=Blank)
                                 "", "", "", "", "", "", "" # AV-BB
                             ])
                             
@@ -1217,7 +1220,7 @@ else:
                                 'terbilang': final_t, 
                                 'keperluan': kep, 
                                 'janji': janji.strftime("%d/%m/%Y"),
-                                'tgl_jam': tgl_full,      
+                                'tgl_jam': tgl_full,       
                                 'link_pendukung': link_drive 
                             }
                             st.session_state.submitted = True; st.session_state.show_errors = False; st.rerun()
