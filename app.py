@@ -1074,13 +1074,35 @@ else:
             creds = get_creds()
             client = gspread.authorize(creds)
             sheet_cek = client.open_by_key(SPREADSHEET_ID).worksheet("DATA_KASBON_AZKO")
-            cell_cek = sheet_cek.find(id_cek)
+            
+            # 1. FIX PENCARIAN (Menghindari Error AttributeError CellNotFound)
+            try:
+                cell_cek = sheet_cek.find(id_cek)
+            except:
+                st.error("❌ Nomor Pengajuan tidak ditemukan.")
+                st.stop()
+            
             data_cek = sheet_cek.row_values(cell_cek.row)
             
-            # Parsing Data for Display
-            c_mgr_name = data_cek[13].split(" - ")[1].split(" (")[0] if len(data_cek) > 13 else "Manager"
-            c_csr_name = data_cek[12].split(" - ")[1].split(" (")[0] if len(data_cek) > 12 else "Cashier"
-            c_req_name = data_cek[4]
+            # 2. FIX PARSING DATA (Menghindari Error Split pada Data Kosong/Blank)
+            # Ambil data raw dulu, cek panjang array, lalu cek konten string sebelum split
+            
+            # Cashier Name (Index 12)
+            raw_csr = data_cek[12] if len(data_cek) > 12 else ""
+            if " - " in raw_csr:
+                c_csr_name = raw_csr.split(" - ")[1].split(" (")[0]
+            else:
+                c_csr_name = "Cashier"
+
+            # Manager Name (Index 13)
+            raw_mgr = data_cek[13] if len(data_cek) > 13 else ""
+            if " - " in raw_mgr:
+                c_mgr_name = raw_mgr.split(" - ")[1].split(" (")[0]
+            else:
+                c_mgr_name = "Manager"
+
+            # Requester Name (Index 4)
+            c_req_name = data_cek[4] if len(data_cek) > 4 else "Requester"
             
             # Styles
             st.divider()
@@ -1156,8 +1178,6 @@ else:
                 render_step(7, f"Laporan Realisasi Belum Dilakukan Final Cek Oleh Bpk/Ibu {c_mgr_name}", "Wait", f"{BASE_URL}?id={id_cek}")
                 st.stop()
                 
-        except gspread.exceptions.CellNotFound:
-            st.error("❌ Nomor Pengajuan tidak ditemukan.")
         except Exception as e:
             st.error(f"Terjadi kesalahan: {e}")
 
