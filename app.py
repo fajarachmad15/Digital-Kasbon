@@ -204,7 +204,14 @@ if query_id:
             
             st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
             
-            # User Recognition & Task Completion Check
+            # === SECURITY FIX ===
+            if pic_email != target_manager_email:
+                st.info("ℹ️ Pengajuan berhasil terkirim. Saat ini sedang menunggu Approval Manager.")
+                st.warning(f"🔒 Halaman ini dikhususkan untuk Manager: {target_manager_email}")
+                st.stop()
+            # ====================
+
+            # User Recognition
             if pic_email == target_manager_email and status_mgr != "Pending":
                  st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda untuk pengajuan ini. Status saat ini: {status_mgr}")
                  st.stop()
@@ -324,6 +331,15 @@ if query_id:
             display_status = "Status Kasbon: Waiting Cashier Verification"
             
             st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
+
+            # === SECURITY FIX ===
+            if pic_email != target_cashier_email:
+                st.info("ℹ️ Pengajuan ini telah di-Approve Manager dan sedang menunggu verifikasi Cashier.")
+                st.warning(f"🔒 Halaman ini dikhususkan untuk Cashier: {target_cashier_email}")
+                if pic_email == target_manager_email:
+                    st.success("✅ Terima kasih, tugas Approval Anda sudah selesai.")
+                st.stop()
+            # ====================
 
             # User Recognition
             if pic_email == target_cashier_email and status_cashier != "Pending":
@@ -616,6 +632,13 @@ if query_id:
             
             st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
             
+            # === SECURITY FIX ===
+            if pic_email != target_cashier_email:
+                st.info("ℹ️ Laporan realisasi telah disubmit. Menunggu verifikasi Cashier.")
+                st.warning(f"🔒 Halaman ini dikhususkan untuk Cashier: {target_cashier_email}")
+                st.stop()
+            # ====================
+
             # User Recognition
             if pic_email == target_cashier_email and status_verif_real != "Pending":
                  st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda untuk pengajuan ini. Status saat ini: {status_verif_real}")
@@ -698,7 +721,7 @@ if query_id:
                 
                 tgl_verif = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
                 
-                sheet.update_cell(cell.row, 36, tgl_verif)                # AJ
+                sheet.update_cell(cell.row, 36, tgl_verif)                 # AJ
                 sheet.update_cell(cell.row, 37, st.session_state.user_nik) # AK
                 sheet.update_cell(cell.row, 38, final_u_kembali)          # AL
                 sheet.update_cell(cell.row, 39, txt_kembali_final)        # AM 
@@ -749,6 +772,15 @@ if query_id:
             
             st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
             
+            # === SECURITY FIX ===
+            if pic_email != target_manager_email:
+                st.info("ℹ️ Realisasi telah diverifikasi Cashier. Menunggu Final Cek Manager.")
+                st.warning(f"🔒 Halaman ini dikhususkan untuk Manager: {target_manager_email}")
+                if pic_email == target_cashier_email:
+                    st.success("✅ Terima kasih, tugas Verifikasi Anda sudah selesai.")
+                st.stop()
+            # ====================
+
             # User Recognition
             if pic_email == target_manager_email:
                 pass # Manager harus login ulang untuk final approval keamanan
@@ -1042,7 +1074,7 @@ else:
                                 'terbilang': final_t, 
                                 'keperluan': kep, 
                                 'janji': janji.strftime("%d/%m/%Y"),
-                                'tgl_jam': tgl_full,     
+                                'tgl_jam': tgl_full,      
                                 'link_pendukung': link_drive 
                             }
                             st.session_state.submitted = True; st.session_state.show_errors = False; st.rerun()
