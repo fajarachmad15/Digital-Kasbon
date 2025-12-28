@@ -461,6 +461,15 @@ if query_id:
             
             st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
             
+            # === SECURITY FIX ===
+            if pic_email != r_req_email:
+                st.info(f"ℹ️ Uang kasbon telah disiapkan/dicairkan. Menunggu konfirmasi penerimaan oleh Requester.")
+                st.warning(f"🔒 Halaman ini dikhususkan untuk Requester: {r_req_email}")
+                if pic_email == target_cashier_email:
+                     st.success("✅ Terima kasih, tugas Verifikasi Anda selesai. Silakan infokan Requester untuk konfirmasi.")
+                st.stop()
+            # ====================
+
             # User Recognition
             # Note: Pemohon biasanya pakai email pic_email, kalau dia sudah klik terima, status_terima != pending, jadi blok ini auto skip.
             
@@ -514,6 +523,13 @@ if query_id:
             
             st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
             
+            # === SECURITY FIX ===
+            if pic_email != r_req_email:
+                st.info(f"ℹ️ Uang telah diterima. Menunggu input realisasi oleh Requester.")
+                st.warning(f"🔒 Halaman ini dikhususkan untuk Requester: {r_req_email}")
+                st.stop()
+            # ====================
+
             # LOGIN NIP + DOUBLE AUTH
             if not st.session_state.portal_verified:
                 st.info("🔒 Untuk keamanan, masukkan NIP Anda dan Password (6 karakter awal email login).")
@@ -636,6 +652,8 @@ if query_id:
             if pic_email != target_cashier_email:
                 st.info("ℹ️ Laporan realisasi telah disubmit. Menunggu verifikasi Cashier.")
                 st.warning(f"🔒 Halaman ini dikhususkan untuk Cashier: {target_cashier_email}")
+                if pic_email == r_req_email:
+                     st.success("✅ Terima kasih, Laporan Realisasi Anda berhasil dikirim.")
                 st.stop()
             # ====================
 
