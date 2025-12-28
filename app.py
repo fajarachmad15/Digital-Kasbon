@@ -943,7 +943,7 @@ if query_id:
             
             # INSTRUKSI 1: FITUR REVISI (UPLOAD) DI BAWAH PERTANYAAN NO 2
             st.write("---")
-            st.subheader("Revisi Bukti Realisasi (Jika Diperlukan)")
+            st.subheader("Revisi Bukti Realisasi")
             bukti_revisi = st.file_uploader("Revisi Bukti Realisasi", type=['png','jpg','jpeg','pdf'])
 
             if st.button("Posting", type="primary"):
@@ -1075,7 +1075,14 @@ else:
             st.markdown('<div class="label-container"><span class="label-text">Email Request</span></div>', unsafe_allow_html=True)
             st.text_input("", value=pic_email, disabled=True)
             
-            err_nama = '<span class="error-tag">Harap dilengkapi</span>' if st.session_state.show_errors and not st.session_state.get('nama_val') else ''
+            # --- VALIDASI NAMA (DIBAYARKAN KEPADA) ---
+            val_nama = st.session_state.get('nama_val', '')
+            msg_nama = ''
+            if st.session_state.show_errors:
+                if not val_nama: msg_nama = "Harap dilengkapi"
+                elif any(char.isdigit() for char in val_nama): msg_nama = "Tidak boleh mengandung angka"
+            
+            err_nama = f'<span class="error-tag">{msg_nama}</span>' if msg_nama else ''
             st.markdown(f'<div class="label-container"><span class="label-text">Dibayarkan Kepada (Nama Lengkap)</span>{err_nama}</div>', unsafe_allow_html=True)
             nama_p = st.text_input("", key="nama_val")
 
@@ -1095,7 +1102,14 @@ else:
                 # INSTRUKSI 2: TERBILANG BESAR & COLOR ADAPTIVE
                 st.markdown(f'<div class="terbilang-text">{teks_terbilang}</div>', unsafe_allow_html=True)
 
-            err_kep = '<span class="error-tag">Harap dilengkapi</span>' if st.session_state.show_errors and not st.session_state.get('kep_val') else ''
+            # --- VALIDASI KEPERLUAN ---
+            val_kep = st.session_state.get('kep_val', '')
+            msg_kep = ''
+            if st.session_state.show_errors:
+                if not val_kep: msg_kep = "Harap dilengkapi"
+                elif len(val_kep.strip().split()) < 2: msg_kep = "Minimal 2 kata"
+            
+            err_kep = f'<span class="error-tag">{msg_kep}</span>' if msg_kep else ''
             st.markdown(f'<div class="label-container"><span class="label-text">Untuk Keperluan</span>{err_kep}</div>', unsafe_allow_html=True)
             kep = st.text_input("", key="kep_val")
 
@@ -1123,7 +1137,11 @@ else:
             if st.session_state.show_errors: st.error("⚠️ Lengkapi kolom bertanda merah.")
 
             if st.button("Kirim Pengajuan", type="primary"):
-                if nama_p and len(nip)==6 and nom_r.isdigit() and kep and dept!="-" and mgr_f!="-" and sc_f!="-":
+                # VALIDASI LOGIC TAMBAHAN
+                valid_nama = nama_p and not any(char.isdigit() for char in nama_p)
+                valid_kep = kep and len(kep.strip().split()) >= 2
+                
+                if valid_nama and len(nip)==6 and nom_r.isdigit() and valid_kep and dept!="-" and mgr_f!="-" and sc_f!="-":
                     try:
                         with st.spinner("Processing..."):
                             sheet = client.open_by_key(SPREADSHEET_ID).worksheet("DATA_KASBON_AZKO")
