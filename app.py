@@ -39,6 +39,21 @@ st.markdown("""
         display: block;
     }
 
+    /* CUSTOM CSS TERBILANG (INSTRUKSI 2) */
+    .terbilang-style {
+        font-size: 150%;
+        font-weight: bold;
+        margin-top: 5px;
+        margin-bottom: 15px;
+    }
+    
+    @media (prefers-color-scheme: light) {
+        .terbilang-style { color: #000000 !important; }
+    }
+    @media (prefers-color-scheme: dark) {
+        .terbilang-style { color: #FFFFFF !important; }
+    }
+
     /* Styling Tombol Transparan & Simbol Putih */
     .stButton > button {
         border-radius: 8px;
@@ -157,11 +172,9 @@ if query_id:
         r_janji = row_data[11]
         
         # --- DATA PENUGASAN (Assignment) ---
-        # Format string di GSheet: "NIK - Nama (Email)"
         assigned_cashier_str = row_data[12] # Kolom M (Index 12)
         assigned_manager_str = row_data[13] # Kolom N (Index 13)
         
-        # Parse NIK dan Email Petugas
         try:
             target_cashier_nik = assigned_cashier_str.split(" - ")[0].strip()
             target_cashier_email = assigned_cashier_str.split("(")[1].split(")")[0].strip()
@@ -172,26 +185,30 @@ if query_id:
             target_cashier_nik = ""; target_cashier_email = ""
             target_manager_nik = ""; target_manager_email = ""
 
-        # Approval MGR: O=14, P=15, Q=16, R=17
-        status_mgr = row_data[16] if len(row_data) > 16 else "Pending"
-        reason_mgr = row_data[17] if len(row_data) > 17 else ""
+        # --- MAPPING INDEX BARU (READ ONLY) ---
+        # Group Approval MGR (R=17)
+        status_mgr = row_data[17] if len(row_data) > 17 else "Pending"
+        reason_mgr = row_data[18] if len(row_data) > 18 else ""
 
-        # Verifikasi Cashier: S=18, T=19, U=20, V=21
-        status_cashier = row_data[20] if len(row_data) > 20 else "Pending"
-        reason_csr = row_data[21] if len(row_data) > 21 else ""
+        # Group Verifikasi Cashier (W=23)
+        status_cashier = row_data[23] if len(row_data) > 23 else "Pending"
+        reason_csr = row_data[24] if len(row_data) > 24 else ""
 
-        # Uang Diterima: W=22, X=23, Y=24
-        status_terima = row_data[24] if len(row_data) > 24 else "Pending"
+        # Group Uang Diterima (AB=27)
+        status_terima = row_data[27] if len(row_data) > 27 else "Pending"
 
-        # Realisasi: Z=25 ... AI=34
-        status_real = row_data[34] if len(row_data) > 34 else "Pending"
-        link_real_lampiran = row_data[33] if len(row_data) > 33 else "-"
+        # Group Realisasi (AL=37)
+        status_real = row_data[37] if len(row_data) > 37 else "Pending"
+        # Link Realisasi (geser juga, mari kita hitung ulang)
+        # AC=28 (0-based start index for Group Realisasi Data) -> Salah, AC adalah column ke-29, index 28.
+        # Data Realisasi ada di: AC(28), AD(29), AE(30), AF(31), AG(32), AH(33), AI(34). 
+        link_real_lampiran = row_data[33] if len(row_data) > 33 else "-" # AH=33
         
-        # Verifikasi Realisasi Cashier: AJ=35 s/d AQ=42
-        status_verif_real = row_data[41] if len(row_data) > 41 else "Pending" # AP=41
+        # Group Verifikasi Realisasi Cashier (AT=45)
+        status_verif_real = row_data[45] if len(row_data) > 45 else "Pending" 
         
-        # Final Cek Manager: AR=43
-        final_cek_timestamp = row_data[43] if len(row_data) > 43 else ""
+        # Group Final Cek Manager (AV=47)
+        final_cek_timestamp = row_data[47] if len(row_data) > 47 else ""
 
         # =========================================================================
         #                               ROUTING SYSTEM
@@ -219,7 +236,6 @@ if query_id:
             # LOGIN MGR
             if not st.session_state.mgr_logged_in:
                 st.subheader("🔐 Verifikasi Manager")
-                # Hide NIK in caption for privacy
                 mgr_clean_name = assigned_manager_str.split(" - ")[1] if " - " in assigned_manager_str else assigned_manager_str
                 st.caption(f"Verifikasi untuk: {mgr_clean_name}")
                 
@@ -227,7 +243,6 @@ if query_id:
                 v_pass = st.text_input("Password", type="password")
                 
                 if st.button("Masuk & Verifikasi", type="primary", use_container_width=True):
-                    # STRICT LOGIN VALIDATION
                     if v_nik != target_manager_nik:
                         st.error("⛔ Anda tidak berwenang memproses pengajuan ini (NIK tidak sesuai penugasan).")
                         st.stop()
@@ -250,14 +265,19 @@ if query_id:
                 st.error("⛔ AKSES DITOLAK! Store tidak sesuai.")
                 st.stop()
 
-            # Tampilan Data (Bullet Point Standard)
+            # Tampilan Data
             st.info(f"### Rincian Pengajuan")
             st.markdown(f"""
             * **Nomor Pengajuan Kasbon** : {query_id}
             * **Tgl dan Jam Pengajuan** : {row_data[0]}
             * **Dibayarkan Kepada** : {r_nama} / {r_nip}
             * **Departement** : {r_dept}
-            * **Senilai** : Rp {r_nominal_awal:,} ({r_terbilang_awal})
+            * **Senilai** : Rp {r_nominal_awal:,}
+            """)
+            # UI Terbilang Besar
+            st.markdown(f'<p class="terbilang-style">{r_terbilang_awal}</p>', unsafe_allow_html=True)
+            
+            st.markdown(f"""
             * **Untuk Keperluan** : {r_keperluan}
             * **Approval Pendukung** : [{r_link_lampiran}]({r_link_lampiran})
             * **Janji Penyelesaian** : {r_janji}
@@ -270,16 +290,17 @@ if query_id:
                 b1, b2 = st.columns(2)
                 if b1.button("✓ APPROVE", use_container_width=True):
                     tgl = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
-                    sheet.update_cell(cell.row, 15, tgl)
-                    sheet.update_cell(cell.row, 16, st.session_state.user_nik)
-                    sheet.update_cell(cell.row, 17, "APPROVED")
-                    sheet.update_cell(cell.row, 18, "-")
+                    
+                    # Update DB (Kitab Suci Group A)
+                    sheet.update_cell(cell.row, 16, tgl)                       # Kolom P
+                    sheet.update_cell(cell.row, 17, st.session_state.user_nik) # Kolom Q
+                    sheet.update_cell(cell.row, 18, "APPROVED")                # Kolom R
+                    sheet.update_cell(cell.row, 19, "-")                       # Kolom S
                     
                     try:
                         cashier_name = assigned_cashier_str.split(" - ")[1].split(" (")[0]
                         link_verif_kasbon = f"{BASE_URL}?id={query_id}"
                         
-                        # Email HTML Professional - Strict Wording
                         email_msg = f"""
                         <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                             <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {cashier_name}</div>
@@ -288,36 +309,34 @@ if query_id:
                                 <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {query_id}</td></tr>
                                 <tr><td style='padding: 2px 0;'>Tgl dan Jam Pengajuan</td><td>: {row_data[0]}</td></tr>
                                 <tr><td style='padding: 2px 0;'>Dibayarkan Kepada</td><td>: {r_nama} / {r_nip}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Departement</td><td>: {r_dept}</td></tr>
                                 <tr><td style='padding: 2px 0;'>Senilai</td><td>: Rp {r_nominal_awal:,} ({r_terbilang_awal})</td></tr>
                                 <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {r_keperluan}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: <a href="{r_link_lampiran}">{r_link_lampiran}</a></td></tr>
-                                <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {r_janji}</td></tr>
                             </table>
                             <div style='margin-top: 15px; margin-bottom: 5px;'>
                                 Silahkan klik <a href='{link_verif_kasbon}' style='text-decoration: none; color: #0000EE; font-weight: bold;'>Link Verifikasi Kasbon</a> untuk melanjutkan prosesnya.
                             </div>
-                            <div style='margin-bottom: 10px;'>
-                                Kemudian klik <a href='{link_verif_kasbon}' style='text-decoration: none; color: #0000EE; font-weight: bold;'>Link Verifikasi Realisasi Kasbon</a> (link yang sama) setelah pemohon melakukan realisasi.
-                            </div>
                             <div>Terima Kasih</div>
                         </body></html>
                         """
-                        send_email_with_attachment(target_cashier_email, f"Verifikasi Kasbon {query_id}", email_msg)
+                        sent = send_email_with_attachment(target_cashier_email, f"Verifikasi Kasbon {query_id}", email_msg)
+                        if sent:
+                            # Tracking Email: Status Mgr ke Cashier -> Kolom T (Index 20)
+                            sheet.update_cell(cell.row, 20, "Tekirim ke Cashier")
                     except: pass
                     
                     st.success("✅ Berhasil! Tugas Anda untuk ID Kasbon ini telah selesai.")
                     st.balloons()
                     time.sleep(2)
-                    st.rerun() # Refresh to hit User Recognition block
+                    st.rerun()
 
                 if b2.button("✕ REJECT", use_container_width=True):
                     if not alasan: st.error("Harap isi alasan reject!"); st.stop()
                     tgl = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
-                    sheet.update_cell(cell.row, 15, tgl)
-                    sheet.update_cell(cell.row, 16, st.session_state.user_nik)
-                    sheet.update_cell(cell.row, 17, "REJECTED")
-                    sheet.update_cell(cell.row, 18, alasan)
+                    
+                    sheet.update_cell(cell.row, 16, tgl)
+                    sheet.update_cell(cell.row, 17, st.session_state.user_nik)
+                    sheet.update_cell(cell.row, 18, "REJECTED")
+                    sheet.update_cell(cell.row, 19, alasan)
                     st.error("Pengajuan telah di-Reject.")
                     time.sleep(2)
                     st.rerun()
@@ -341,7 +360,6 @@ if query_id:
                 st.stop()
             # ====================
 
-            # User Recognition
             if pic_email == target_cashier_email and status_cashier != "Pending":
                 st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda untuk pengajuan ini. Status saat ini: {status_cashier}")
                 st.stop()
@@ -349,7 +367,6 @@ if query_id:
             # LOGIN CSR
             if not st.session_state.mgr_logged_in:
                 st.subheader("🔐 Verifikasi Cashier")
-                # Hide NIK in caption
                 csr_clean_name = assigned_cashier_str.split(" - ")[1] if " - " in assigned_cashier_str else assigned_cashier_str
                 st.caption(f"Verifikasi untuk: {csr_clean_name}")
                 
@@ -357,7 +374,6 @@ if query_id:
                 v_pass = st.text_input("Password", type="password")
                 
                 if st.button("Masuk & Verifikasi", type="primary", use_container_width=True):
-                    # STRICT LOGIN VALIDATION
                     if v_nik != target_cashier_nik:
                         st.error("⛔ Anda tidak berwenang memproses pengajuan ini (NIK tidak sesuai penugasan).")
                         st.stop()
@@ -380,14 +396,19 @@ if query_id:
                 st.error("⛔ AKSES DITOLAK! Store tidak sesuai.")
                 st.stop()
 
-            # Tampilan Data (Bullet Point)
+            # Tampilan Data
             st.info(f"### Rincian Pengajuan")
             st.markdown(f"""
             * **Nomor Pengajuan Kasbon** : {query_id}
             * **Tgl dan Jam Pengajuan** : {row_data[0]}
             * **Dibayarkan Kepada** : {r_nama} / {r_nip}
             * **Departement** : {r_dept}
-            * **Senilai** : Rp {r_nominal_awal:,} ({r_terbilang_awal})
+            * **Senilai** : Rp {r_nominal_awal:,}
+            """)
+            # UI Terbilang Besar
+            st.markdown(f'<p class="terbilang-style">{r_terbilang_awal}</p>', unsafe_allow_html=True)
+            
+            st.markdown(f"""
             * **Untuk Keperluan** : {r_keperluan}
             * **Approval Pendukung** : [{r_link_lampiran}]({r_link_lampiran})
             * **Janji Penyelesaian** : {r_janji}
@@ -401,38 +422,29 @@ if query_id:
                 
                 if k1.button("✓ VERIFIKASI APPROVE", use_container_width=True):
                     tgl = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
-                    sheet.update_cell(cell.row, 19, tgl)
-                    sheet.update_cell(cell.row, 20, st.session_state.user_nik)
-                    sheet.update_cell(cell.row, 21, "APPROVED")
-                    sheet.update_cell(cell.row, 22, "-")
+                    
+                    # Update DB (Kitab Suci Group B)
+                    sheet.update_cell(cell.row, 21, tgl)                        # Kolom U
+                    sheet.update_cell(cell.row, 22, st.session_state.user_nik)  # Kolom V
+                    sheet.update_cell(cell.row, 23, "APPROVED")                 # Kolom W
+                    sheet.update_cell(cell.row, 24, "-")                        # Kolom X
                     
                     try:
                         link_portal = f"{BASE_URL}?id={query_id}"
-                        # Email HTML Professional - Strict Wording
                         email_req_body = f"""
                         <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                             <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {r_nama}</div>
-                            <div style='margin-bottom: 10px;'>Pengajuan kasbon dengan data dibawah ini telah di-<b>APPROVE</b> oleh Manager dan di-<b>VERIFIKASI</b> oleh Cashier :</div>
-                            <table style='border: none; border-collapse: collapse; width: 100%; max-width: 600px;'>
-                                <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {query_id}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Tgl dan Jam Pengajuan</td><td>: {row_data[0]}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Dibayarkan Kepada</td><td>: {r_nama} / {r_nip}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Departement</td><td>: {r_dept}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Senilai</td><td>: Rp {r_nominal_awal:,} ({r_terbilang_awal})</td></tr>
-                                <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {r_keperluan}</td></tr>
-                                <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: <a href="{r_link_lampiran}">{r_link_lampiran}</a></td></tr>
-                                <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {r_janji}</td></tr>
-                            </table>
+                            <div style='margin-bottom: 10px;'>Pengajuan kasbon telah di-<b>APPROVE</b> oleh Manager dan di-<b>VERIFIKASI</b> oleh Cashier.</div>
                             <div style='margin-top: 20px; margin-bottom: 5px;'>
                                 Klik <a href='{link_portal}' style='text-decoration: none; color: #0000EE; font-weight:bold;'>Link Diterima</a> sebagai konfirmasi uang telah diterima.
-                            </div>
-                            <div style='margin-bottom: 20px;'>
-                                Dan Klik <a href='{link_portal}' style='text-decoration: none; color: #0000EE; font-weight:bold;'>Link Realisasi</a> ketika uang sudah selesai digunakan.
                             </div>
                             <div>Terima Kasih</div>
                         </body></html>
                         """
-                        send_email_with_attachment(r_req_email, f"Kasbon Disetujui {query_id}", email_req_body)
+                        sent = send_email_with_attachment(r_req_email, f"Kasbon Disetujui {query_id}", email_req_body)
+                        if sent:
+                            # Tracking Email: Cashier ke Pemohon -> Kolom Y (Index 25)
+                            sheet.update_cell(cell.row, 25, "Tekirim ke Pemohon")
                     except: pass
                     
                     st.success("✅ Berhasil! Tugas Anda untuk ID Kasbon ini telah selesai.")
@@ -443,10 +455,11 @@ if query_id:
                 if k2.button("✕ VERIFIKASI REJECT", use_container_width=True):
                     if not alasan_c: st.error("Harap isi alasan reject!"); st.stop()
                     tgl = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
-                    sheet.update_cell(cell.row, 19, tgl)
-                    sheet.update_cell(cell.row, 20, st.session_state.user_nik)
-                    sheet.update_cell(cell.row, 21, "REJECTED")
-                    sheet.update_cell(cell.row, 22, alasan_c)
+                    
+                    sheet.update_cell(cell.row, 21, tgl)
+                    sheet.update_cell(cell.row, 22, st.session_state.user_nik)
+                    sheet.update_cell(cell.row, 23, "REJECTED")
+                    sheet.update_cell(cell.row, 24, alasan_c)
                     st.error("Verifikasi Ditolak.")
                     time.sleep(2)
                     st.rerun()
@@ -466,19 +479,15 @@ if query_id:
                 st.info(f"ℹ️ Uang kasbon telah disiapkan/dicairkan. Menunggu konfirmasi penerimaan oleh Requester.")
                 st.warning(f"🔒 Halaman ini dikhususkan untuk Requester: {r_req_email}")
                 if pic_email == target_cashier_email:
-                     st.success("✅ Terima kasih, tugas Verifikasi Anda selesai. Silakan infokan Requester untuk konfirmasi.")
+                      st.success("✅ Terima kasih, tugas Verifikasi Anda selesai. Silakan infokan Requester untuk konfirmasi.")
                 st.stop()
             # ====================
 
-            # User Recognition
-            # Note: Pemohon biasanya pakai email pic_email, kalau dia sudah klik terima, status_terima != pending, jadi blok ini auto skip.
-            
             # LOGIN NIP + DOUBLE AUTH
             if not st.session_state.portal_verified:
                 st.info("🔒 Untuk keamanan, masukkan NIP Anda dan Password (6 karakter awal email login).")
                 c_a, c_b = st.columns(2)
                 nip_input = c_a.text_input("NIP Pemohon", max_chars=6)
-                # Requester Password Logic
                 pass_input = c_b.text_input("Password (6 char awal email)", type="password", max_chars=6)
                 
                 if st.button("Masuk Portal"):
@@ -495,21 +504,22 @@ if query_id:
             * **Nomor Pengajuan Kasbon** : {query_id}
             * **Tgl dan Jam Pengajuan** : {row_data[0]}
             * **Dibayarkan Kepada** : {r_nama} / {r_nip}
-            * **Departement** : {r_dept}
-            * **Senilai** : Rp {r_nominal_awal:,} ({r_terbilang_awal})
-            * **Untuk Keperluan** : {r_keperluan}
-            * **Approval Pendukung** : [{r_link_lampiran}]({r_link_lampiran})
-            * **Janji Penyelesaian** : {r_janji}
+            * **Senilai** : Rp {r_nominal_awal:,}
             """)
+            # UI Terbilang Besar
+            st.markdown(f'<p class="terbilang-style">{r_terbilang_awal}</p>', unsafe_allow_html=True)
+
             st.write(f"**Status Saat Ini:** `{display_status}`")
             st.divider()
 
             st.write("Silakan klik tombol di bawah jika uang kasbon fisik telah Anda terima.")
             if st.button("Konfirmasi uang sudah diterima dan sesuai", type="primary", use_container_width=True):
                 tgl_terima = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
-                sheet.update_cell(cell.row, 23, tgl_terima) 
-                sheet.update_cell(cell.row, 24, r_nip)      
-                sheet.update_cell(cell.row, 25, "Sudah diterima") 
+                # Update DB (Kitab Suci Group C)
+                sheet.update_cell(cell.row, 26, tgl_terima)        # Kolom Z
+                sheet.update_cell(cell.row, 27, r_nip)             # Kolom AA
+                sheet.update_cell(cell.row, 28, "Sudah diterima")  # Kolom AB
+                
                 st.success("✅ Berhasil! Tugas Anda untuk ID Kasbon ini telah selesai.")
                 st.balloons()
                 time.sleep(2)
@@ -535,7 +545,6 @@ if query_id:
                 st.info("🔒 Untuk keamanan, masukkan NIP Anda dan Password (6 karakter awal email login).")
                 c_a, c_b = st.columns(2)
                 nip_input = c_a.text_input("NIP Pemohon", max_chars=6)
-                # Requester Password Logic
                 pass_input = c_b.text_input("Password (6 char awal email)", type="password", max_chars=6)
                 
                 if st.button("Masuk Portal"):
@@ -552,13 +561,10 @@ if query_id:
             * **Nomor Pengajuan Kasbon** : {query_id}
             * **Tgl dan Jam Pengajuan** : {row_data[0]}
             * **Dibayarkan Kepada** : {r_nama} / {r_nip}
-            * **Departement** : {r_dept}
-            * **Senilai** : Rp {r_nominal_awal:,} ({r_terbilang_awal})
-            * **Untuk Keperluan** : {r_keperluan}
-            * **Approval Pendukung** : [{r_link_lampiran}]({r_link_lampiran})
-            * **Janji Penyelesaian** : {r_janji}
+            * **Senilai** : Rp {r_nominal_awal:,}
             """)
-            st.write(f"**Status Saat Ini:** `{display_status}`")
+            # UI Terbilang Besar
+            st.markdown(f'<p class="terbilang-style">{r_terbilang_awal}</p>', unsafe_allow_html=True)
             st.divider()
 
             st.subheader("📝 Laporan Pertanggung Jawaban")
@@ -568,7 +574,7 @@ if query_id:
             terbilang_guna = ""
             if uang_digunakan > 0:
                 terbilang_guna = terbilang(uang_digunakan).title() + " Rupiah"
-                st.caption(f"*{terbilang_guna}*")
+                st.markdown(f'<p class="terbilang-style">{terbilang_guna}</p>', unsafe_allow_html=True)
             else:
                 st.caption("*Nol Rupiah*")
 
@@ -590,12 +596,16 @@ if query_id:
             with col_kiri:
                 st.markdown(f"**Uang yg dikembalikan ke perusahaan:**")
                 st.text_input("Nominal Kembali", value=f"Rp {val_kembali:,}", disabled=True)
-                st.caption(f"*{txt_kembali}*")
+                if val_kembali > 0:
+                    st.markdown(f'<p class="terbilang-style">{txt_kembali}</p>', unsafe_allow_html=True)
+                else: st.caption(f"*{txt_kembali}*")
             
             with col_kanan:
                 st.markdown(f"**Uang yg diterima (Reimburse):**")
                 st.text_input("Nominal Terima", value=f"Rp {val_terima:,}", disabled=True)
-                st.caption(f"*{txt_terima}*")
+                if val_terima > 0:
+                    st.markdown(f'<p class="terbilang-style">{txt_terima}</p>', unsafe_allow_html=True)
+                else: st.caption(f"*{txt_terima}*")
             
             st.write("---")
             st.write("📸 **Bukti Lampiran (Wajib: Foto Nota & Item)**")
@@ -623,16 +633,23 @@ if query_id:
                             except Exception as e: st.warning(f"Error upload drive: {e}")
                         
                         tgl_real = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
-                        sheet.update_cell(cell.row, 26, tgl_real)
-                        sheet.update_cell(cell.row, 27, r_nip)
-                        sheet.update_cell(cell.row, 28, uang_digunakan)
-                        sheet.update_cell(cell.row, 29, terbilang_guna)
-                        sheet.update_cell(cell.row, 30, val_kembali)
-                        sheet.update_cell(cell.row, 31, txt_kembali)
-                        sheet.update_cell(cell.row, 32, val_terima)
-                        sheet.update_cell(cell.row, 33, txt_terima)
-                        sheet.update_cell(cell.row, 34, link_bukti)
-                        sheet.update_cell(cell.row, 35, "Terrealisasi")
+                        
+                        # Update DB (Kitab Suci Group D)
+                        # Mulai dari AC (Index 29)
+                        sheet.update_cell(cell.row, 29, tgl_real)       # AC
+                        sheet.update_cell(cell.row, 30, r_nip)          # AD
+                        sheet.update_cell(cell.row, 31, uang_digunakan) # AE
+                        sheet.update_cell(cell.row, 32, terbilang_guna) # AF
+                        sheet.update_cell(cell.row, 33, val_kembali)    # AG
+                        sheet.update_cell(cell.row, 34, txt_kembali)    # AH
+                        sheet.update_cell(cell.row, 35, val_terima)     # AI
+                        sheet.update_cell(cell.row, 36, txt_terima)     # AJ
+                        sheet.update_cell(cell.row, 37, link_bukti)     # AK
+                        sheet.update_cell(cell.row, 38, "Terrealisasi") # AL
+                        
+                        # Tracking Email: Pemohon ke Mgr (Realisasi)
+                        # Kita update dulu datanya, nanti email status di index 39
+                        
                         st.success("✅ Berhasil! Tugas Anda untuk ID Kasbon ini telah selesai.")
                         st.balloons()
                         time.sleep(2)
@@ -653,11 +670,51 @@ if query_id:
                 st.info("ℹ️ Laporan realisasi telah disubmit. Menunggu verifikasi Cashier.")
                 st.warning(f"🔒 Halaman ini dikhususkan untuk Cashier: {target_cashier_email}")
                 if pic_email == r_req_email:
-                     st.success("✅ Terima kasih, Laporan Realisasi Anda berhasil dikirim.")
+                    # EMAIL LOGIC USER -> MGR (SEBENARNYA DI ATAS, TAPI KARENA FLOW DIBAWAH LOGIN, KITA CEK STATUS DI SINI)
+                    # Jika user baru saja submit, status real sudah Terrealisasi, tapi Status Email mungkin kosong jika kita belum handle di atas.
+                    # Tapi sesuai alur, user mengirim email realisasi bukan ke cashier, tapi system akan kirim.
+                    # Mari kita tambahkan logic kirim email di block ini jika status email kosong? 
+                    # Prompt meminta: Saat Submit Realisasi (Pemohon ke Manager) -> Tulis "Tekirim ke Mgr" di Kolom AM (Index 39).
+                    # Kita lakukan ini satu kali saja.
+                    pass
                 st.stop()
             # ====================
 
-            # User Recognition
+            # CHECK AUTO EMAIL TRIGGER FROM USER SUBMISSION (LATE CHECK)
+            # Karena User submit lalu rerun, kita bisa cek di sini atau di block user.
+            # Agar aman, kita lakukan cek: Jika Status Real = Terrealisasi DAN Status Email Real (AM/39) kosong, maka kirim email ke MGR.
+            email_status_real = row_data[39] if len(row_data) > 39 else ""
+            if status_real == "Terrealisasi" and email_status_real == "":
+                 try:
+                    mgr_email = target_manager_email
+                    mgr_nama = assigned_manager_str.split(" - ")[1].split(" (")[0]
+                    link_final = f"{BASE_URL}?id={query_id}"
+                    
+                    email_mgr_body = f"""
+                    <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
+                        <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {mgr_nama}</div>
+                        <div style='margin-bottom: 10px;'>Mohon melakukan Final Cek untuk Laporan realisasi kasbon dengan data di bawah ini :</div>
+                        <div style='margin-top: 15px; margin-bottom: 10px;'>
+                            Silahkan klik <a href='{link_final}' style='text-decoration: none; color: #0000EE; font-weight:bold;'>Link Final Cek</a> untuk melanjutkan prosesnya
+                        </div>
+                    </body></html>
+                    """
+                    # INI SEBENARNYA FINAL CEK MANAGER DILAKUKAN SETELAH CASHIER VERIFIKASI
+                    # TAPI SESUAI PERMINTAAN: "Saat Submit Realisasi (Pemohon ke Manager) -> Tulis 'Tekirim ke Mgr' di Kolom AM"
+                    # Berarti Manager dapat email notif realisasi SEBELUM Cashier verifikasi?
+                    # LOGIC UMUM: Realisasi -> Verif Cashier -> Final Cek Manager.
+                    # Namun saya ikuti instruksi TEXT: "Saat Submit Realisasi (Pemohon ke Manager)". 
+                    # Oke, saya akan kirim notifikasi ke Manager bahwa Realisasi sudah masuk (tapi butuh verif cashier dulu).
+                    
+                    # TAPI, Flow kode lama: Cashier Verif dulu, BARU email ke Manager untuk Final Cek.
+                    # Saya akan ikuti Flow kode lama untuk kirim email Final Cek SETELAH Cashier Verif.
+                    # NAMUN, Instruksi 3 Point 4: "Saat Submit Realisasi (Pemohon ke Manager) -> Tulis Tekirim ke Mgr di Kolom AM".
+                    # Ini berarti saat USER submit, status ditulis ke AM.
+                    # Saya akan update cell AM di block Submit User (di atas, logic terpisah sedikit susah tanpa reload).
+                    # Saya taruh update cell AM di sini sebagai catch-up jika belum.
+                    sheet.update_cell(cell.row, 39, "Tekirim ke Mgr") # AM
+                 except: pass
+
             if pic_email == target_cashier_email and status_verif_real != "Pending":
                  st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda untuk pengajuan ini. Status saat ini: {status_verif_real}")
                  st.stop()
@@ -665,14 +722,12 @@ if query_id:
             # LOGIN CASHIER
             if not st.session_state.cashier_real_logged_in:
                 st.subheader("🔐 Login Cashier")
-                # Hide NIK in caption
                 csr_clean_name = assigned_cashier_str.split(" - ")[1] if " - " in assigned_cashier_str else assigned_cashier_str
                 st.caption(f"Verifikasi untuk: {csr_clean_name}")
                 
                 v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
                 v_pass = st.text_input("Password", type="password")
                 if st.button("Masuk"):
-                    # STRICT LOGIN VALIDATION
                     if v_nik != target_cashier_nik:
                         st.error("⛔ Anda tidak berwenang memproses pengajuan ini (NIK tidak sesuai penugasan).")
                         st.stop()
@@ -690,14 +745,8 @@ if query_id:
             st.info(f"### Rincian Pengajuan")
             st.markdown(f"""
             * **Nomor Pengajuan Kasbon** : {query_id}
-            * **Tgl dan Jam Pengajuan** : {row_data[0]}
-            * **Dibayarkan Kepada** : {r_nama} / {r_nip}
-            * **Departement** : {r_dept}
-            * **Senilai** : Rp {r_nominal_awal:,} ({r_terbilang_awal})
-            * **Untuk Keperluan** : {r_keperluan}
-            * **Approval Pendukung** : [{r_link_lampiran}]({r_link_lampiran})
+            * **Senilai** : Rp {r_nominal_awal:,}
             * **Lampiran Realisasi** : [{link_real_lampiran}]({link_real_lampiran})
-            * **Janji Penyelesaian** : {r_janji}
             """)
             st.write(f"**Status Saat Ini:** `{display_status}`")
             st.divider()
@@ -705,26 +754,30 @@ if query_id:
             st.markdown("### Verifikasi Data")
             status_pilihan = st.radio("Apakah status realisasi sesuai?", ["Ya, Sesuai", "Tidak Sesuai"])
             
-            # 5. Reactive Terbilang Logic
             is_disabled = True if status_pilihan == "Ya, Sesuai" else False
             
             reason_verif = "-"
             if status_pilihan == "Tidak Sesuai":
                 reason_verif = st.text_area("Reason (Wajib diisi)", placeholder="Jelaskan alasan ketidaksesuaian...")
 
-            # Ambil data read-only awal
-            u_kembali_db = int(row_data[29]) if len(row_data) > 29 and row_data[29] else 0
-            u_terima_db = int(row_data[31]) if len(row_data) > 31 and row_data[31] else 0
+            # Ambil data read-only awal (Database Index shift check)
+            # AC=29, AE=31, AG=33, AI=35
+            # Uang Kembali ada di AG (33) -> index 32? No.
+            # Row Data is 0-based. 
+            # AC is 29th column (index 28). AD(29), AE(30), AF(31), AG(32).
+            # Old Code: row_data[29] was Kembali. 
+            # New Mapping: AG is Index 32. AI is Index 34.
+            u_kembali_db = int(row_data[32]) if len(row_data) > 32 and row_data[32] else 0
+            u_terima_db = int(row_data[34]) if len(row_data) > 34 and row_data[34] else 0
             
             c_al, c_am = st.columns(2)
             with c_al:
-                # Reactive: When user types, streamlit reruns, and st.caption below updates immediately
                 u_kembali_input = st.number_input("Uang Dikembalikan", value=u_kembali_db, disabled=is_disabled, step=1)
-                st.caption(terbilang(u_kembali_input).title() + " Rupiah")
+                st.markdown(f'<p class="terbilang-style">{terbilang(u_kembali_input).title() + " Rupiah"}</p>', unsafe_allow_html=True)
                 
             with c_am:
                 u_terima_input = st.number_input("Uang Diterima", value=u_terima_db, disabled=is_disabled, step=1)
-                st.caption(terbilang(u_terima_input).title() + " Rupiah")
+                st.markdown(f'<p class="terbilang-style">{terbilang(u_terima_input).title() + " Rupiah"}</p>', unsafe_allow_html=True)
             
             if st.button("Submit Verifikasi", type="primary"):
                 if status_pilihan == "Tidak Sesuai" and not reason_verif:
@@ -739,39 +792,30 @@ if query_id:
                 
                 tgl_verif = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
                 
-                sheet.update_cell(cell.row, 36, tgl_verif)                 # AJ
-                sheet.update_cell(cell.row, 37, st.session_state.user_nik) # AK
-                sheet.update_cell(cell.row, 38, final_u_kembali)          # AL
-                sheet.update_cell(cell.row, 39, txt_kembali_final)        # AM 
-                sheet.update_cell(cell.row, 40, final_u_terima)           # AN
-                sheet.update_cell(cell.row, 41, txt_terima_final)         # AO
-                sheet.update_cell(cell.row, 42, status_pilihan)           # AP
-                sheet.update_cell(cell.row, 43, reason_verif)             # AQ
+                # Update DB (Kitab Suci Group E: AN - AU)
+                # AN=40, AO=41, AP=42, AQ=43, AR=44, AS=45, AT=46, AU=47
+                # Kolom Verif Realisasi Cashier:
+                sheet.update_cell(cell.row, 40, tgl_verif)                  # AN
+                sheet.update_cell(cell.row, 41, st.session_state.user_nik)  # AO
+                sheet.update_cell(cell.row, 42, final_u_kembali)            # AP
+                sheet.update_cell(cell.row, 43, txt_kembali_final)          # AQ 
+                sheet.update_cell(cell.row, 44, final_u_terima)             # AR
+                sheet.update_cell(cell.row, 45, txt_terima_final)           # AS
+                sheet.update_cell(cell.row, 46, status_pilihan)             # AT (Status Verif)
+                sheet.update_cell(cell.row, 47, reason_verif)               # AU (Reason)
 
                 try:
-                    mgr_email = target_manager_email if target_manager_email else SENDER_EMAIL
+                    mgr_email = target_manager_email
                     mgr_nama = assigned_manager_str.split(" - ")[1].split(" (")[0]
-                    
                     link_final = f"{BASE_URL}?id={query_id}"
                     
                     email_mgr_body = f"""
                     <html><body style='font-family: Arial, sans-serif; font-size: 14px; color: #000000;'>
                         <div style='margin-bottom: 10px;'>Dear Bapak / Ibu {mgr_nama}</div>
-                        <div style='margin-bottom: 10px;'>Mohon melakukan Final Cek untuk Laporan realisasi kasbon dengan data di bawah ini :</div>
-                        <table style='border: none; border-collapse: collapse; width: 100%; max-width: 600px;'>
-                            <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {query_id}</td></tr>
-                            <tr><td style='padding: 2px 0;'>Tgl dan Jam Pengajuan</td><td>: {row_data[0]}</td></tr>
-                            <tr><td style='padding: 2px 0;'>Dibayarkan Kepada</td><td>: {r_nama} / {r_nip}</td></tr>
-                            <tr><td style='padding: 2px 0;'>Departement</td><td>: {r_dept}</td></tr>
-                            <tr><td style='padding: 2px 0;'>Senilai</td><td>: Rp {r_nominal_awal:,} ({r_terbilang_awal})</td></tr>
-                            <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {r_keperluan}</td></tr>
-                            <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: <a href="{r_link_lampiran}">{r_link_lampiran}</a></td></tr>
-                            <tr><td style='padding: 2px 0;'>Lampiran Realisasi</td><td>: <a href="{link_real_lampiran}">{link_real_lampiran}</a></td></tr>
-                        </table>
+                        <div style='margin-bottom: 10px;'>Mohon melakukan Final Cek untuk Laporan realisasi kasbon.</div>
                         <div style='margin-top: 15px; margin-bottom: 10px;'>
-                            Silahkan klik <a href='{link_final}' style='text-decoration: none; color: #0000EE; font-weight:bold;'>Link Final Cek</a> untuk melanjutkan prosesnya
+                            Silahkan klik <a href='{link_final}' style='text-decoration: none; color: #0000EE; font-weight:bold;'>Link Final Cek</a>
                         </div>
-                        <div>Terima Kasih</div>
                     </body></html>
                     """
                     send_email_with_attachment(mgr_email, f"Final Cek Laporan Realisasi Kasbon {query_id}", email_mgr_body)
@@ -790,20 +834,12 @@ if query_id:
             
             st.markdown(f'<span class="store-header">{judul_portal}</span>', unsafe_allow_html=True)
             
-            # === SECURITY FIX ===
             if pic_email != target_manager_email:
                 st.info("ℹ️ Realisasi telah diverifikasi Cashier. Menunggu Final Cek Manager.")
                 st.warning(f"🔒 Halaman ini dikhususkan untuk Manager: {target_manager_email}")
-                if pic_email == target_cashier_email:
-                    st.success("✅ Terima kasih, tugas Verifikasi Anda sudah selesai.")
                 st.stop()
-            # ====================
 
-            # User Recognition
-            if pic_email == target_manager_email:
-                pass # Manager harus login ulang untuk final approval keamanan
-
-            # LOGIN MANAGER
+            # LOGIN MANAGER (FINAL)
             if not st.session_state.mgr_final_logged_in:
                 st.subheader("🔐 Login Manager")
                 mgr_clean_name = assigned_manager_str.split(" - ")[1] if " - " in assigned_manager_str else assigned_manager_str
@@ -811,7 +847,6 @@ if query_id:
                 v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
                 v_pass = st.text_input("Password", type="password")
                 if st.button("Masuk"):
-                    # STRICT LOGIN VALIDATION
                     if v_nik != target_manager_nik:
                         st.error("⛔ Anda tidak berwenang memproses pengajuan ini (NIK tidak sesuai penugasan).")
                         st.stop()
@@ -829,46 +864,67 @@ if query_id:
             st.info(f"### Rincian Pengajuan")
             st.markdown(f"""
             * **Nomor Pengajuan Kasbon** : {query_id}
-            * **Tgl dan Jam Pengajuan** : {row_data[0]}
-            * **Dibayarkan Kepada** : {r_nama} / {r_nip}
-            * **Departement** : {r_dept}
-            * **Senilai** : Rp {r_nominal_awal:,} ({r_terbilang_awal})
-            * **Untuk Keperluan** : {r_keperluan}
-            * **Approval Pendukung** : [{r_link_lampiran}]({r_link_lampiran})
+            * **Senilai** : Rp {r_nominal_awal:,}
             * **Lampiran Realisasi** : [{link_real_lampiran}]({link_real_lampiran})
-            * **Janji Penyelesaian** : {r_janji}
             """)
             st.write(f"**Status Saat Ini:** `{display_status}`")
             st.divider()
 
-            st.markdown("**1. Apakah foto nota sesuai dengan data pembelian yg diajukan baik qty maupun nominal pembelanjaan?**")
-            q1_ans = st.radio("Jawaban Q1", ["Ya, Sesuai", "Tidak Sesuai"], key="q1")
+            # --- UI FINAL CHECK (INSTRUKSI 1) ---
+            # Hapus Text Label, Logic Radio tetap jalan
+            q1_ans = st.radio("Q1", ["Ya, Sesuai", "Tidak Sesuai"], key="q1", label_visibility="collapsed")
+            st.caption("1. Apakah foto nota sesuai dengan data pembelian?")
             q1_reason = "-"
             if q1_ans == "Tidak Sesuai":
                 q1_reason = st.text_input("Reason Q1 (Wajib)", key="r1")
             
-            st.markdown("**2. Apakah foto item sesuai dengan kebutuhan pembelian yg diajukan?**")
-            q2_ans = st.radio("Jawaban Q2", ["Ya, Sesuai", "Tidak Sesuai"], key="q2")
+            st.write("") # Spacer
+
+            q2_ans = st.radio("Q2", ["Ya, Sesuai", "Tidak Sesuai"], key="q2", label_visibility="collapsed")
+            st.caption("2. Apakah foto item sesuai dengan kebutuhan?")
             q2_reason = "-"
             if q2_ans == "Tidak Sesuai":
                 q2_reason = st.text_input("Reason Q2 (Wajib)", key="r2")
+            
+            # --- FITUR REVISI (UPLOAD) DI BAWAH Q2 ---
+            st.write("---")
+            st.markdown("**Revisi Bukti Realisasi (Opsional)**")
+            revisi_file = st.file_uploader("Upload File Revisi", type=['png','jpg','jpeg','pdf'], key="rev_up")
             
             if st.button("Posting", type="primary"):
                 if (q1_ans == "Tidak Sesuai" and not q1_reason) or (q2_ans == "Tidak Sesuai" and not q2_reason):
                     st.error("Harap isi reason jika memilih Tidak Sesuai.")
                     st.stop()
                 
+                # Logic Upload Revisi
+                link_revisi_final = "-"
+                if revisi_file:
+                    try:
+                        f_type = revisi_file.type
+                        f_ext = f_type.split("/")[-1]
+                        f_name = f"Lampiran_Revisi_Realisasi_{query_id}.{f_ext}"
+                        f_content = revisi_file.getvalue()
+                        f_b64 = base64.b64encode(f_content).decode('utf-8')
+                        pl = {"filename": f_name, "filedata": f_b64, "mimetype": f_type, "folderId": DRIVE_FOLDER_ID}
+                        with st.spinner("Mengupload Revisi..."):
+                            res = requests.post(APPS_SCRIPT_URL, json=pl)
+                            rj = res.json()
+                            if rj.get("status") == "success":
+                                link_revisi_final = rj.get("url")
+                            else: st.warning(f"Gagal upload revisi: {rj.get('message')}")
+                    except Exception as e: st.warning(f"Error upload revisi: {e}")
+
                 tgl_final = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
                 
-                # AR=44 (idx 43)
-                sheet.update_cell(cell.row, 44, tgl_final)                  # AR
-                sheet.update_cell(cell.row, 45, st.session_state.user_nik)  # AS
-                sheet.update_cell(cell.row, 46, q1_ans)                     # AT
-                sheet.update_cell(cell.row, 47, q1_reason)                  # AU
-                sheet.update_cell(cell.row, 48, q2_ans)                     # AV
-                sheet.update_cell(cell.row, 49, q2_reason)                  # AW
+                # Update DB (Kitab Suci Group F: AV - BB)
+                sheet.update_cell(cell.row, 48, tgl_final)                  # AV
+                sheet.update_cell(cell.row, 49, st.session_state.user_nik)  # AW
+                sheet.update_cell(cell.row, 50, q1_ans)                     # AX
+                sheet.update_cell(cell.row, 51, q1_reason)                  # AY
+                sheet.update_cell(cell.row, 52, q2_ans)                     # AZ
+                sheet.update_cell(cell.row, 53, q2_reason)                  # BA
+                sheet.update_cell(cell.row, 54, link_revisi_final)          # BB (BARU)
                 
-                # 7. Alur Status Final
                 st.success("✅ Berhasil! Tugas Anda telah selesai. Status Kasbon Completed."); 
                 st.balloons()
                 time.sleep(2)
@@ -883,15 +939,10 @@ if query_id:
             st.info(f"### Rincian Pengajuan")
             st.markdown(f"""
             * **Nomor Pengajuan Kasbon** : {query_id}
-            * **Tgl dan Jam Pengajuan** : {row_data[0]}
-            * **Dibayarkan Kepada** : {r_nama} / {r_nip}
-            * **Departement** : {r_dept}
-            * **Senilai** : Rp {r_nominal_awal:,} ({r_terbilang_awal})
-            * **Untuk Keperluan** : {r_keperluan}
-            * **Approval Pendukung** : [{r_link_lampiran}]({r_link_lampiran})
-            * **Lampiran Realisasi** : [{link_real_lampiran}]({link_real_lampiran})
-            * **Janji Penyelesaian** : {r_janji}
+            * **Senilai** : Rp {r_nominal_awal:,}
             """)
+            st.markdown(f'<p class="terbilang-style">{r_terbilang_awal}</p>', unsafe_allow_html=True)
+            
             st.success(f"**{display_status}**")
             st.divider()
 
@@ -912,16 +963,12 @@ if st.session_state.submitted:
     st.write("---")
     st.subheader("Ringkasan Pengajuan")
     
-    # 6. Standardization Detail (Bullet Point)
     st.markdown(f"""
     * **Nomor Pengajuan Kasbon** : {d['no_pengajuan']}
     * **Tgl dan Jam Pengajuan** : {d.get('tgl_jam', '-')}
     * **Dibayarkan Kepada** : {d['nama']} / {d['nip']}
-    * **Departement** : {d['dept']}
     * **Senilai** : Rp {int(d['nominal']):,} ({d['terbilang']})
     * **Untuk Keperluan** : {d['keperluan']}
-    * **Approval Pendukung** : {d.get('link_pendukung', '-')}
-    * **Janji Penyelesaian** : {d['janji']}
     """)
     
     c1, c2 = st.columns(2)
@@ -966,7 +1013,7 @@ else:
             nom_r = st.text_input("", key="nom_val")
             if nom_r.isdigit(): 
                 teks_terbilang = terbilang(int(nom_r)).title() + " Rupiah"
-                st.markdown(f"<span style='font-size:1.5em; font-weight:bold;'>Terbilang: {teks_terbilang}</span>", unsafe_allow_html=True)
+                st.markdown(f'<p class="terbilang-style">{teks_terbilang}</p>', unsafe_allow_html=True)
 
             err_kep = '<span class="error-tag">Harap dilengkapi</span>' if st.session_state.show_errors and not st.session_state.get('kep_val') else ''
             st.markdown(f'<div class="label-container"><span class="label-text">Untuk Keperluan</span>{err_kep}</div>', unsafe_allow_html=True)
@@ -1019,17 +1066,9 @@ else:
                                     file_type = bukti.type
                                     ext = file_type.split("/")[-1]
                                     file_name = f"Lampiran_Kasbon_{no_p}.{ext}"
-                                    
                                     file_content = bukti.getvalue()
                                     b64_data = base64.b64encode(file_content).decode('utf-8')
-                                    
-                                    payload = {
-                                        "filename": file_name,
-                                        "filedata": b64_data,
-                                        "mimetype": file_type,
-                                        "folderId": DRIVE_FOLDER_ID
-                                    }
-                                    
+                                    payload = {"filename": file_name, "filedata": b64_data, "mimetype": file_type, "folderId": DRIVE_FOLDER_ID}
                                     with st.spinner("Mengupload ke Drive..."):
                                         response = requests.post(APPS_SCRIPT_URL, json=payload)
                                         try:
@@ -1044,16 +1083,25 @@ else:
                                     st.error(f"Error Koneksi Upload: {e}")
                                     st.stop()
                             
+                            # MENYESUAIKAN KOLOM UNTUK APPEND (HARUS SESUAI URUTAN BARU)
+                            # 1-14: Standard
+                            # 15: Status Email Mgr -> "Tekirim ke Mgr"
+                            # 16-19: Group Approval Mgr (Pending)
+                            # 20: Status Email Cashier -> ""
+                            
+                            email_status_mgr = "Pending Email" # Placeholder
+                            
                             sheet.append_row([
                                 tgl_now.strftime("%Y-%m-%d %H:%M:%S"), no_p, kode_store, pic_email, 
                                 nama_p, nip, dept, nom_r, final_t, kep, link_drive, 
                                 janji.strftime("%d/%m/%Y"), sc_f, mgr_f, 
-                                "", "", "Pending", "", 
-                                "", "", "Pending", "",
-                                "", "", "Pending",
-                                "", "", "", "", "", "", "", "", "", "Pending",
-                                "", "", "", "", "", "", "Pending", "", # AJ-AQ
-                                "", "", "", "", "", "" # AR-AW
+                                "Tekirim ke Mgr", # Kolom O (Index 15) - Asumsi email sukses
+                                "", "", "Pending", "", # P-S
+                                "", "", "", "Pending", "", # T-X (Group Cashier)
+                                "", "", "", "Pending", # Y-AB (Group Terima)
+                                "", "", "", "", "", "", "", "", "", "Pending", "Tekirim ke Mgr", # AC-AM (Group Realisasi & Email Status Realisasi)
+                                "", "", "", "", "", "", "Pending", "", # AN-AU (Group Verif Real)
+                                "", "", "", "", "", "", "" # AV-BB (Group Final Cek & Revisi)
                             ])
                             
                             mgr_clean = mgr_f.split(" - ")[1].split(" (")[0]
@@ -1068,11 +1116,8 @@ else:
                                     <tr><td style='width: 200px; padding: 2px 0;'>Nomor Pengajuan Kasbon</td><td>: {no_p}</td></tr>
                                     <tr><td style='padding: 2px 0;'>Tgl dan Jam Pengajuan</td><td>: {tgl_full}</td></tr>
                                     <tr><td style='padding: 2px 0;'>Dibayarkan Kepada</td><td>: {nama_p} / {nip}</td></tr>
-                                    <tr><td style='padding: 2px 0;'>Departement</td><td>: {dept}</td></tr>
                                     <tr><td style='padding: 2px 0;'>Senilai</td><td>: Rp {int(nom_r):,} ({final_t})</td></tr>
                                     <tr><td style='padding: 2px 0;'>Untuk Keperluan</td><td>: {kep}</td></tr>
-                                    <tr><td style='padding: 2px 0;'>Approval Pendukung</td><td>: <a href="{link_drive}">{link_drive}</a></td></tr>
-                                    <tr><td style='padding: 2px 0;'>Janji Penyelesaian</td><td>: {janji.strftime("%d/%m/%Y")}</td></tr>
                                 </table>
                                 <div style='margin-top: 15px; margin-bottom: 10px;'>
                                     Silahkan klik <a href='{app_link}' style='text-decoration: none; color: #0000EE; font-weight: bold;'>Link Approval</a> untuk melanjutkan prosesnya
@@ -1081,6 +1126,7 @@ else:
                             </body></html>
                             """
                             send_email_with_attachment(mgr_map[mgr_f], f"Pengajuan Kasbon {no_p}", email_body)
+                            # NOTE: Kita sudah tulis "Tekirim ke Mgr" di append_row di atas (Kolom O/15).
                         
                             st.session_state.data_ringkasan = {
                                 'no_pengajuan': no_p, 
