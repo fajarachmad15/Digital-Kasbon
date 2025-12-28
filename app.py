@@ -300,7 +300,7 @@ if query_id:
                     
                     # GROUP APPROVAL MANAGER - WRITE
                     # INSTRUKSI: Col R = "Approved"
-                    sheet.update_cell(cell.row, 16, tgl)                        # Kolom P
+                    sheet.update_cell(cell.row, 16, tgl)                         # Kolom P
                     sheet.update_cell(cell.row, 17, st.session_state.user_nik) # Kolom Q
                     sheet.update_cell(cell.row, 18, "Approved")                # Kolom R
                     sheet.update_cell(cell.row, 19, "-")                        # Kolom S
@@ -513,7 +513,7 @@ if query_id:
                 st.info(f"ℹ️ Uang kasbon telah disiapkan/dicairkan. Menunggu konfirmasi penerimaan oleh Requester.")
                 st.warning(f"🔒 Halaman ini dikhususkan untuk Requester: {r_req_email}")
                 if pic_email == target_cashier_email:
-                       st.success("✅ Terima kasih, tugas Verifikasi Anda selesai. Silakan infokan Requester untuk konfirmasi.")
+                        st.success("✅ Terima kasih, tugas Verifikasi Anda selesai. Silakan infokan Requester untuk konfirmasi.")
                 st.stop()
             # ====================
 
@@ -725,7 +725,7 @@ if query_id:
                 st.info("ℹ️ Laporan realisasi telah disubmit. Menunggu verifikasi Cashier.")
                 st.warning(f"🔒 Halaman ini dikhususkan untuk Cashier: {target_cashier_email}")
                 if pic_email == r_req_email:
-                      st.success("✅ Terima kasih, Laporan Realisasi Anda berhasil dikirim.")
+                       st.success("✅ Terima kasih, Laporan Realisasi Anda berhasil dikirim.")
                 st.stop()
             # ====================
 
@@ -1061,6 +1061,108 @@ else:
     st.subheader("📍 Identifikasi Lokasi")
     kode_store = st.text_input("Masukkan Kode Store", placeholder="Contoh: A644").upper()
 
+    # --- FITUR CEK STATUS (REQUESTED) ---
+    st.markdown("### 🕵️ Cek Status Pengajuan")
+    col_cek_1, col_cek_2 = st.columns([3, 1])
+    with col_cek_1:
+        id_cek = st.text_input("Masukkan Nomor Pengajuan (Contoh: KB...)", label_visibility="collapsed", placeholder="Masukkan Nomor Pengajuan")
+    with col_cek_2:
+        btn_cek = st.button("Cek Status", type="primary", use_container_width=True)
+
+    if btn_cek and id_cek:
+        try:
+            creds = get_creds()
+            client = gspread.authorize(creds)
+            sheet_cek = client.open_by_key(SPREADSHEET_ID).worksheet("DATA_KASBON_AZKO")
+            cell_cek = sheet_cek.find(id_cek)
+            data_cek = sheet_cek.row_values(cell_cek.row)
+            
+            # Parsing Data for Display
+            c_mgr_name = data_cek[13].split(" - ")[1].split(" (")[0] if len(data_cek) > 13 else "Manager"
+            c_csr_name = data_cek[12].split(" - ")[1].split(" (")[0] if len(data_cek) > 12 else "Cashier"
+            c_req_name = data_cek[4]
+            
+            # Styles
+            st.divider()
+            
+            # Function to render row
+            def render_step(step_no, text, status, link=None):
+                c1, c2, c3 = st.columns([0.5, 6, 2.5])
+                with c1:
+                    if status == "Done": st.markdown("✅")
+                    elif status == "Reject": st.markdown("❌")
+                    else: st.markdown("⏳")
+                with c2:
+                    st.markdown(f"**Step {step_no}**")
+                    st.write(text)
+                with c3:
+                    if status == "Wait":
+                        st.link_button("Follow up Manual", link)
+            
+            # STEP 1
+            render_step(1, "Pengajuan Kasbon Terkirim", "Done")
+            
+            # STEP 2: Manager Approval
+            stat_mgr = data_cek[17] if len(data_cek) > 17 else ""
+            if stat_mgr == "Approved":
+                render_step(2, f"Pengajuan Kasbon Sudah Disetujui Oleh Bpk/Ibu {c_mgr_name}", "Done")
+            elif stat_mgr == "Reject":
+                render_step(2, f"Pengajuan Kasbon Tidak Disetujui Oleh Bpk/Ibu {c_mgr_name}", "Reject")
+                st.stop()
+            else:
+                render_step(2, f"Pengajuan Kasbon Belum Disetujui Oleh Bpk/Ibu {c_mgr_name}", "Wait", f"{BASE_URL}?id={id_cek}")
+                st.stop()
+                
+            # STEP 3: Cashier Verif
+            stat_csr = data_cek[22] if len(data_cek) > 22 else ""
+            if stat_csr == "Verifikasi Approved":
+                render_step(3, f"Pengajuan Kasbon Terverifikasi Lengkap Oleh Bpk/Ibu {c_csr_name}", "Done")
+            elif stat_csr == "Verifikasi Reject":
+                render_step(3, f"Pengajuan Kasbon Terverifikasi Tidak Lengkap Oleh Bpk/Ibu {c_csr_name}", "Reject")
+                st.stop()
+            else:
+                render_step(3, f"Pengajuan Kasbon Belum Diverifikasi Oleh Bpk/Ibu {c_csr_name}", "Wait", f"{BASE_URL}?id={id_cek}")
+                st.stop()
+
+            # STEP 4: Uang Diterima
+            stat_terima = data_cek[27] if len(data_cek) > 27 else ""
+            if stat_terima == "Sudah diterima":
+                render_step(4, f"Uang Kasbon Sudah Diterima Oleh Bpk/Ibu {c_req_name}", "Done")
+            else:
+                render_step(4, f"Uang Kasbon Belum Diterima Oleh Bpk/Ibu {c_req_name}", "Wait", f"{BASE_URL}?id={id_cek}")
+                st.stop()
+
+            # STEP 5: Realisasi Terkirim
+            stat_real = data_cek[37] if len(data_cek) > 37 else ""
+            if stat_real == "Terrealisasi":
+                render_step(5, f"Laporan Realisasi Sudah Terkirim Oleh Bpk/Ibu {c_req_name}", "Done")
+            else:
+                render_step(5, f"Laporan Realisasi Belum Dikirim Oleh Bpk/Ibu {c_req_name}", "Wait", f"{BASE_URL}?id={id_cek}")
+                st.stop()
+
+            # STEP 6: Realisasi Verif
+            stat_v_real = data_cek[45] if len(data_cek) > 45 else ""
+            if stat_v_real in ["Ya, Sesuai", "Tidak Sesuai"]:
+                render_step(6, f"Laporan Realisasi Sudah Diverifikasi Oleh Bpk/Ibu {c_csr_name}", "Done")
+            else:
+                render_step(6, f"Laporan Realisasi Belum Diverifikasi Oleh Bpk/Ibu {c_csr_name}", "Wait", f"{BASE_URL}?id={id_cek}")
+                st.stop()
+
+            # STEP 7: Final Cek
+            stat_final = data_cek[47] if len(data_cek) > 47 else ""
+            if stat_final:
+                render_step(7, f"Laporan Realisasi Sudah Dilakukan Final Cek Oleh Bpk/Ibu {c_mgr_name}", "Done")
+            else:
+                render_step(7, f"Laporan Realisasi Belum Dilakukan Final Cek Oleh Bpk/Ibu {c_mgr_name}", "Wait", f"{BASE_URL}?id={id_cek}")
+                st.stop()
+                
+        except gspread.exceptions.CellNotFound:
+            st.error("❌ Nomor Pengajuan tidak ditemukan.")
+        except Exception as e:
+            st.error(f"Terjadi kesalahan: {e}")
+
+    # --- END FITUR CEK STATUS ---
+
     if kode_store:
         try:
             creds = get_creds()
@@ -1238,7 +1340,7 @@ else:
                                 'terbilang': final_t, 
                                 'keperluan': kep, 
                                 'janji': janji.strftime("%d/%m/%Y"),
-                                'tgl_jam': tgl_full,       
+                                'tgl_jam': tgl_full,        
                                 'link_pendukung': link_drive 
                             }
                             st.session_state.submitted = True; st.session_state.show_errors = False; st.rerun()
