@@ -19,7 +19,8 @@ const AppConfig = (function () {
     URL_FORM_PENGAJUAN: 'https://script.google.com/macros/s/AKfycbxIIwX65loQQc3PuYoEU4Vgm0vqwwTOAmjUrLtSfWNB54rt3QyBs7EPjkayqW7eQWg/exec',
     URL_PORTAL_MANAGER: 'https://script.google.com/macros/s/AKfycbwhF50hYPVveIRiVRrN-xPsqXQEX8ca8S8qhYPejc0simgjOU-YyQf7gD2wngUcIiA/exec',
     URL_PORTAL_CASHIER: 'https://script.google.com/macros/s/AKfycbwA4RkZ2un-7q3kjkKWItYRon3OYrGftIHLP89oIn7SuaRjTBWRnu5vhA72_aLimXw/exec',
-    URL_PORTAL_REQUESTER: 'https://script.google.com/macros/s/AKfycbxvcV2WMj4f-lGCpN6qQhs-zbZzvsnQ_WguRIA8moZHkFWgr-1NsFtUGFPR2yl5Kt0P/exec'
+    URL_PORTAL_REQUESTER: 'https://script.google.com/macros/s/AKfycbxvcV2WMj4f-lGCpN6qQhs-zbZzvsnQ_WguRIA8moZHkFWgr-1NsFtUGFPR2yl5Kt0P/exec',
+    URL_PORTAL_ADMIN: 'https://script.google.com/macros/s/AKfycbwLnkSpl8bmr1cQOgJmPsuUSRLtOCl51qOIOq2Y-iMGTke5zBFyy4KsMVYk9zhkzoVa/exec'
   };
 
   /**
@@ -54,7 +55,8 @@ const AppConfig = (function () {
       pengajuan: get('URL_FORM_PENGAJUAN') || currentAppUrl,
       manager: get('URL_PORTAL_MANAGER') || currentAppUrl,
       cashier: get('URL_PORTAL_CASHIER') || currentAppUrl,
-      requester: get('URL_PORTAL_REQUESTER') || currentAppUrl
+      requester: get('URL_PORTAL_REQUESTER') || currentAppUrl,
+      admin: get('URL_PORTAL_ADMIN') || currentAppUrl
     };
   }
 
@@ -70,6 +72,7 @@ const AppConfig = (function () {
     if (urlsObj.manager) payload.URL_PORTAL_MANAGER = urlsObj.manager.trim();
     if (urlsObj.cashier) payload.URL_PORTAL_CASHIER = urlsObj.cashier.trim();
     if (urlsObj.requester) payload.URL_PORTAL_REQUESTER = urlsObj.requester.trim();
+    if (urlsObj.admin) payload.URL_PORTAL_ADMIN = urlsObj.admin.trim();
     props.setProperties(payload, false);
     return payload;
   }

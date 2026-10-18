@@ -38,5 +38,13 @@
     "script_editor_url": "https://script.google.com/d/1ZtIbXD7nfqG9xA-DaFnMQOntQ4nujT6ytDKVymWDY49zNDibp6DgMgd6/edit",
     "deployment_id": "AKfycbxvcV2WMj4f-lGCpN6qQhs-zbZzvsnQ_WguRIA8moZHkFWgr-1NsFtUGFPR2yl5Kt0P",
     "url": "https://script.google.com/macros/s/AKfycbxvcV2WMj4f-lGCpN6qQhs-zbZzvsnQ_WguRIA8moZHkFWgr-1NsFtUGFPR2yl5Kt0P/exec"
+  },
+  "portalAdmin": {
+    "title": "Kasbon - Portal Admin (Master Store & Role)",
+    "folder": "gas-portal-admin",
+    "script_id": "1tl0mHd1PPfINyhu6ORQObCzGqW3LEIC3HglsWqu0wl7z5YpW1rtSZFrb",
+    "script_editor_url": "https://script.google.com/d/1tl0mHd1PPfINyhu6ORQObCzGqW3LEIC3HglsWqu0wl7z5YpW1rtSZFrb/edit",
+    "deployment_id": "AKfycbwLnkSpl8bmr1cQOgJmPsuUSRLtOCl51qOIOq2Y-iMGTke5zBFyy4KsMVYk9zhkzoVa",
+    "url": "https://script.google.com/macros/s/AKfycbwLnkSpl8bmr1cQOgJmPsuUSRLtOCl51qOIOq2Y-iMGTke5zBFyy4KsMVYk9zhkzoVa/exec"
   }
 }

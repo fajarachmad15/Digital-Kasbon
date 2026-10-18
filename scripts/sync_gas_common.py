@@ -18,6 +18,7 @@ TARGET_PROJECTS = [
     "gas-portal-manager",
     "gas-portal-cashier",
     "gas-portal-requester",
+    "gas-portal-admin",
 ]
 
 SHARED_FILES = [

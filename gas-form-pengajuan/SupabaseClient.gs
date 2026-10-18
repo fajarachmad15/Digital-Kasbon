@@ -117,6 +117,31 @@ const SupabaseClient = (function () {
   }
 
   /**
+   * DELETE rows matching a PostgREST query filter.
+   * @param {string} table
+   * @param {string} matchQuery - e.g. 'id=eq.fae8e2b2-610d-47e6-8949-57ddb5116aaf'
+   * @return {Array<Object>}
+   */
+  function remove(table, matchQuery) {
+    if (!matchQuery) {
+      throw new Error('Supabase DELETE requires a non-empty matchQuery filter.');
+    }
+    const url = buildUrl(table, matchQuery);
+    const response = UrlFetchApp.fetch(url, {
+      method: 'delete',
+      headers: getHeaders({ 'Prefer': 'return=representation' }),
+      muteHttpExceptions: true
+    });
+
+    const code = response.getResponseCode();
+    const text = response.getContentText();
+    if (code >= 200 && code < 300) {
+      return text ? JSON.parse(text) : [];
+    }
+    throw new Error('Supabase DELETE Error (' + code + '): ' + text);
+  }
+
+  /**
    * Writes an audit trail entry into kasbon_audit_logs (non-blocking on error).
    */
   function logAudit(entry) {
@@ -138,11 +163,32 @@ const SupabaseClient = (function () {
     }
   }
 
+  /**
+   * Writes a master data / admin audit trail entry into kasbon_admin_logs (non-blocking on error).
+   */
+  function logAdminAudit(entry) {
+    try {
+      insert('kasbon_admin_logs', {
+        action_type: entry.action_type || 'ADMIN_ACTION',
+        target_entity: entry.target_entity || 'SYSTEM',
+        target_id: entry.target_id || '-',
+        actor_nik: entry.actor_nik || '-',
+        actor_name: entry.actor_name || '-',
+        actor_email: entry.actor_email || '-',
+        details: entry.details || '-'
+      });
+    } catch (e) {
+      console.warn('Admin audit log warning:', e.message);
+    }
+  }
+
   return {
     select: select,
     selectSingle: selectSingle,
     insert: insert,
     update: update,
-    logAudit: logAudit
+    remove: remove,
+    logAudit: logAudit,
+    logAdminAudit: logAdminAudit
   };
 })();

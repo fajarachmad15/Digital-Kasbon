@@ -177,7 +177,7 @@
         .withSuccessHandler(function (res) {
           rawItems = res.items || [];
           portalUrls = res.portalUrls || {};
-          if (storesList.length === 0 && res.stores) {
+          if (res.stores) {
             storesList = res.stores;
             populateStores(storesList);
           }
@@ -191,6 +191,19 @@
               e.preventDefault();
               openConfigModal();
             };
+          }
+          const btnAdmin = document.getElementById('btnPortalAdmin');
+          if (btnAdmin) {
+            if (portalUrls.admin) {
+              btnAdmin.href = portalUrls.admin;
+              btnAdmin.onclick = null;
+            } else {
+              btnAdmin.href = '#';
+              btnAdmin.onclick = function (e) {
+                e.preventDefault();
+                openConfigModal();
+              };
+            }
           }
           renderTable();
 
@@ -348,6 +361,8 @@
       document.getElementById('cfgUrlManager').value = portalUrls.manager || '';
       document.getElementById('cfgUrlCashier').value = portalUrls.cashier || '';
       document.getElementById('cfgUrlRequester').value = portalUrls.requester || '';
+      const cfgAdmin = document.getElementById('cfgUrlAdmin');
+      if (cfgAdmin) cfgAdmin.value = portalUrls.admin || '';
       document.getElementById('configModal').showModal();
     }
 
@@ -361,7 +376,8 @@
         pengajuan: document.getElementById('cfgUrlPengajuan').value,
         manager: document.getElementById('cfgUrlManager').value,
         cashier: document.getElementById('cfgUrlCashier').value,
-        requester: document.getElementById('cfgUrlRequester').value
+        requester: document.getElementById('cfgUrlRequester').value,
+        admin: document.getElementById('cfgUrlAdmin') ? document.getElementById('cfgUrlAdmin').value : ''
       };
 
       google.script.run

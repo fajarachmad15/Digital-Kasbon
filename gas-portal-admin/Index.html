@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Portal Admin Master Store &amp; Role | E-Kasbon Petty Cash</title>
+  <?!= include('SharedStyles'); ?>
+  <style>
+    /* Admin Portal Specific Styles */
+    .kpi-card {
+      background: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.1rem 1.25rem;
+      box-shadow: var(--shadow-sm);
+      border-top: 3px solid var(--brand-secondary);
+    }
+    .kpi-card.kpi-store { border-top-color: #2563eb; }
+    .kpi-card.kpi-mgr { border-top-color: #16a34a; }
+    .kpi-card.kpi-csr { border-top-color: #0891b2; }
+    .kpi-card.kpi-adm { border-top-color: var(--brand-primary); }
+    .kpi-label { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.02em; }
+    .kpi-value { font-size: 1.65rem; font-weight: 800; color: var(--text-main); margin: 0.25rem 0; }
+    .kpi-sub { font-size: 0.8rem; color: var(--text-muted); }
+
+    /* Navigation Tabs */
+    .admin-tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 2px solid var(--border-color);
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .admin-tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      padding: 0.75rem 1.25rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.15s ease;
+    }
+    .admin-tab-btn:hover {
+      color: var(--brand-secondary);
+      background: #f1f5f9;
+      border-radius: 8px 8px 0 0;
+    }
+    .admin-tab-btn.active {
+      color: var(--brand-primary);
+      border-bottom-color: var(--brand-primary);
+      background: #fff;
+      border-radius: 8px 8px 0 0;
+    }
+
+    /* Tables */
+    .table-responsive {
+      overflow-x: auto;
+    }
+    .corp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    .corp-table th {
+      background: #f1f5f9;
+      color: var(--brand-secondary);
+      font-weight: 700;
+      text-align: left;
+      padding: 0.75rem 0.85rem;
+      border-bottom: 2px solid var(--border-color);
+      white-space: nowrap;
+    }
+    .corp-table td {
+      padding: 0.75rem 0.85rem;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+    }
+    .corp-table tr:hover td {
+      background-color: #f8fafc;
+    }
+
+    /* Role Badges */
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.22rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.775rem;
+      font-weight: 700;
+    }
+    .role-admin { background: #fce8e6; color: #c8102e; border: 1px solid #f5c2c7; }
+    .role-manager { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .role-cashier { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
+    .role-requester { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+
+    /* Native Dialog Modal */
+    dialog.corp-modal {
+      width: 95%;
+      max-width: 560px;
+      border: none;
+      border-radius: var(--radius-lg);
+      padding: 0;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+    }
+    dialog.corp-modal::backdrop {
+      background: rgba(15, 23, 42, 0.55);
+    }
+    .modal-header {
+      background: var(--brand-secondary);
+      color: #fff;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-body {
+      padding: 1.5rem;
+      max-height: 82vh;
+      overflow-y: auto;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    @media (max-width: 768px) {
+      .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="corp-navbar">
+    <div class="corp-brand">
+      <span class="corp-badge-pill">SUPER ADMIN</span>
+      <span>Master Store &amp; User Role Management</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap;">
+      <span id="adminSessionBadge" style="display:none; font-size:0.825rem; color:#fde047; font-weight:600;"></span>
+      <a id="navFormBtn" href="#" target="_blank" class="btn btn-outline" style="padding:0.4rem 0.75rem; font-size:0.8rem;">
+        📝 Form Pengajuan
+      </a>
+      <a id="navDashboardBtn" href="#" target="_blank" class="btn btn-outline" style="padding:0.4rem 0.85rem; font-size:0.8rem;">
+        📊 Buka Dashboard Monitoring
+      </a>
+      <button type="button" id="btnLogout" class="btn btn-danger" style="display:none; padding:0.4rem 0.75rem; font-size:0.8rem;" onclick="AdminApp.logout()">
+        🚪 Keluar
+      </button>
+    </div>
+  </header>
+
+  <main class="corp-container-wide">
+    <!-- =================================================================== -->
+    <!-- SECTION 1: LOGIN GATE SUPER ADMIN                                   -->
+    <!-- =================================================================== -->
+    <section id="loginSection" class="corp-card" style="max-width:520px; margin:2.5rem auto;">
+      <div class="corp-card-header">
+        <h2 class="corp-card-title">🔐 Otentikasi Super Admin</h2>
+        <span class="badge badge-info">Role: Admin</span>
+      </div>
+
+      <p style="font-size:0.9rem; color:var(--text-muted); margin-top:0;">
+        Masuk menggunakan <strong>NIK 6 Digit</strong> dan <strong>PIN / Password</strong> akun yang memiliki role <code>Admin</code> untuk mengelola Master Unit Store, Role Petugas, serta Reset PIN.
+      </p>
+
+      <div id="loginAlert" class="alert alert-error" style="display:none;"></div>
+
+      <form id="adminLoginForm" novalidate>
+        <div class="field-group">
+          <label class="field-label" for="loginNik">NIK Admin (6 Digit) <span class="req-star">*</span></label>
+          <input type="text" id="loginNik" class="form-control" maxlength="6" pattern="^\d{6}$" inputmode="numeric" placeholder="Contoh: 121014" required aria-errormessage="err-login-nik">
+          <div id="err-login-nik" class="error-msg"><span aria-hidden="true">❌</span> Masukkan 6 digit angka NIK Admin.</div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="loginPin">Password / PIN Admin <span class="req-star">*</span></label>
+          <input type="password" id="loginPin" class="form-control" minlength="4" placeholder="Masukkan PIN Admin" required aria-errormessage="err-login-pin">
+          <div id="err-login-pin" class="error-msg"><span aria-hidden="true">❌</span> Masukkan PIN / Password Admin (minimal 4 karakter).</div>
+        </div>
+
+        <button type="submit" id="btnLoginSubmit" class="btn btn-primary btn-block">
+          🔓 Masuk ke Panel Super Admin
+        </button>
+      </form>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- SECTION 2: MAIN ADMIN WORKSPACE (VISIBLE AFTER LOGIN)               -->
+    <!-- =================================================================== -->
+    <div id="workspaceSection" style="display:none;">
+      <!-- Global Feedback Banner -->
+      <div id="globalNotice" class="alert alert-success" style="display:none;"></div>
+      <div id="globalError" class="alert alert-error" style="display:none;"></div>
+      <div id="coverageWarning" class="alert alert-warning" style="display:none;"></div>
+
+      <!-- KPI Summary Row -->
+      <div class="grid-4" style="margin-bottom:1.25rem;">
+        <div class="kpi-card kpi-store">
+          <div class="kpi-label">Total Unit Store Aktif</div>
+          <div class="kpi-value" id="kpiActiveStores">0</div>
+          <div class="kpi-sub" id="kpiTotalStores">Total terdaftar: 0 store</div>
+        </div>
+        <div class="kpi-card kpi-mgr">
+          <div class="kpi-label">Petugas Role Manager</div>
+          <div class="kpi-value" id="kpiActiveManagers">0</div>
+          <div class="kpi-sub">Approver Step 2 &amp; Final Cek Step 7</div>
+        </div>
+        <div class="kpi-card kpi-csr">
+          <div class="kpi-label">Petugas Senior Cashier</div>
+          <div class="kpi-value" id="kpiActiveCashiers">0</div>
+          <div class="kpi-sub">Verifikator Step 3 &amp; Realisasi Step 6</div>
+        </div>
+        <div class="kpi-card kpi-adm">
+          <div class="kpi-label">Super Admin &amp; Requester</div>
+          <div class="kpi-value" id="kpiActiveAdmins">0</div>
+          <div class="kpi-sub" id="kpiTotalUsers">Total seluruh user: 0</div>
+        </div>
+      </div>
+
+      <!-- Tab Bar Navigation -->
+      <div class="admin-tabs">
+        <button type="button" id="tabBtnStores" class="admin-tab-btn active" onclick="AdminApp.switchTab('stores')">
+          🏢 Master Unit Bisnis Store
+        </button>
+        <button type="button" id="tabBtnUsers" class="admin-tab-btn" onclick="AdminApp.switchTab('users')">
+          👥 Manajemen User, Role &amp; PIN
+        </button>
+        <button type="button" id="tabBtnLogs" class="admin-tab-btn" onclick="AdminApp.switchTab('logs')">
+          📜 Riwayat Audit Admin
+        </button>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB 1: MASTER UNIT BISNIS STORE                                   -->
+      <!-- ================================================================= -->
+      <section id="tabPanelStores" class="corp-card">
+        <div class="corp-card-header">
+          <div>
+            <h2 class="corp-card-title">🏢 Daftar Master Unit Bisnis Store</h2>
+            <small style="color:var(--text-muted);">Setiap Store aktif yang memiliki minimal 1 Manager &amp; 1 Senior Cashier siap digunakan di Form Pengajuan.</small>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="button" class="btn btn-outline" onclick="AdminApp.refreshAll()">🔄 Refresh</button>
+            <button type="button" class="btn btn-primary" onclick="AdminApp.openStoreModal('create')">+ Tambah Store Baru</button>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:1rem;">
+          <div>
+            <input type="search" id="searchStoreInput" class="form-control" placeholder="Cari Kode Store atau Nama Store..." oninput="AdminApp.renderStoresTable()">
+          </div>
+          <div style="display:flex; align-items:center; justify-content:flex-end;">
+            <span id="storeCountLabel" style="font-size:0.85rem; color:var(--text-muted);">0 store</span>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="corp-table">
+            <thead>
+              <tr>
+                <th>Kode Store</th>
+                <th>Nama Unit Store</th>
+                <th>Manager Aktif</th>
+                <th>Senior Cashier Aktif</th>
+                <th>Kesiapan Transaksi</th>
+                <th>Status Store</th>
+                <th>Aksi Pengelolaan</th>
+              </tr>
+            </thead>
+            <tbody id="storesTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 2: MANAJEMEN USER, ROLE & PIN                                 -->
+      <!-- ================================================================= -->
+      <section id="tabPanelUsers" class="corp-card" style="display:none;">
+        <div class="corp-card-header">
+          <div>
+            <h2 class="corp-card-title">👥 Daftar Petugas, Role &amp; Kredensial PIN</h2>
+            <small style="color:var(--text-muted);">Kelola penugasan Role (Manager, Senior Cashier, Admin, Requester) per Store serta pengaturan PIN akses.</small>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="button" class="btn btn-outline" onclick="AdminApp.refreshAll()">🔄 Refresh</button>
+            <button type="button" class="btn btn-primary" onclick="AdminApp.openUserModal('create')">+ Tambah User / Role Baru</button>
+          </div>
+        </div>
+
+        <div class="grid-4" style="margin-bottom:1rem; align-items:end;">
+          <div>
+            <label class="field-label" for="filterUserStore">Filter Store</label>
+            <select id="filterUserStore" class="form-control" onchange="AdminApp.renderUsersTable()">
+              <option value="ALL">Semua Store</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="filterUserRole">Filter Role</label>
+            <select id="filterUserRole" class="form-control" onchange="AdminApp.renderUsersTable()">
+              <option value="ALL">Semua Role</option>
+              <option value="Admin">🛡️ Admin (Super Admin)</option>
+              <option value="Manager">👔 Manager (Step 2 &amp; 7)</option>
+              <option value="Senior Cashier">💼 Senior Cashier (Step 3 &amp; 6)</option>
+              <option value="Requester">🙋 Requester (Pemohon)</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="filterUserStatus">Status</label>
+            <select id="filterUserStatus" class="form-control" onchange="AdminApp.renderUsersTable()">
+              <option value="ALL">Semua Status</option>
+              <option value="ACTIVE">Aktif</option>
+              <option value="INACTIVE">Nonaktif</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="searchUserInput">Cari NIK / Nama / Email</label>
+            <input type="search" id="searchUserInput" class="form-control" placeholder="Ketik NIK, nama, atau email..." oninput="AdminApp.renderUsersTable()">
+          </div>
+        </div>
+
+        <div style="margin-bottom:0.65rem; display:flex; justify-content:space-between; align-items:center;">
+          <span id="userCountLabel" style="font-size:0.85rem; color:var(--text-muted);">0 user</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="corp-table">
+            <thead>
+              <tr>
+                <th>NIK (6 Digit)</th>
+                <th>Nama Lengkap</th>
+                <th>Email</th>
+                <th>Store</th>
+                <th>Role Penugasan</th>
+                <th>PIN Login</th>
+                <th>Status</th>
+                <th>Aksi Pengelolaan</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 3: RIWAYAT AUDIT ADMIN                                        -->
+      <!-- ================================================================= -->
+      <section id="tabPanelLogs" class="corp-card" style="display:none;">
+        <div class="corp-card-header">
+          <h2 class="corp-card-title">📜 Log Audit Perubahan Master Store &amp; Role</h2>
+          <button type="button" class="btn btn-outline" onclick="AdminApp.refreshAll()">🔄 Refresh Log</button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="corp-table">
+            <thead>
+              <tr>
+                <th>Waktu (WIB)</th>
+                <th>Tipe Aksi</th>
+                <th>Target</th>
+                <th>Dilakukan Oleh (Admin)</th>
+                <th>Rincian Perubahan</th>
+              </tr>
+            </thead>
+            <tbody id="logsTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 1: TAMBAH / EDIT UNIT BISNIS STORE                              -->
+  <!-- ===================================================================== -->
+  <dialog id="storeModal" class="corp-modal">
+    <div class="modal-header">
+      <h3 style="margin:0; font-size:1.05rem;" id="storeModalTitle">Tambah Unit Bisnis Store</h3>
+      <button type="button" class="btn btn-outline" style="padding:0.25rem 0.6rem;" onclick="document.getElementById('storeModal').close()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="storeModalAlert" class="alert alert-error" style="display:none;"></div>
+      <form id="storeForm" novalidate>
+        <input type="hidden" id="storeFormMode" value="create">
+
+        <div class="field-group">
+          <label class="field-label" for="storeKodeInput">Kode Store (2-16 Karakter Huruf/Angka) <span class="req-star">*</span></label>
+          <input type="text" id="storeKodeInput" class="form-control" maxlength="16" pattern="^[A-Za-z0-9_-]{2,16}$" placeholder="Contoh: A700 atau TK05" style="text-transform:uppercase;" required aria-errormessage="err-store-kode">
+          <div id="err-store-kode" class="error-msg"><span aria-hidden="true">❌</span> Kode Store wajib 2-16 karakter huruf/angka tanpa spasi.</div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="storeNamaInput">Nama Lengkap Store <span class="req-star">*</span></label>
+          <input type="text" id="storeNamaInput" class="form-control" minlength="3" placeholder="Contoh: Azko Grand Indonesia" required aria-errormessage="err-store-nama">
+          <div id="err-store-nama" class="error-msg"><span aria-hidden="true">❌</span> Masukkan nama lengkap store (minimal 3 karakter).</div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="storeStatusInput">Status Operasional Store <span class="req-star">*</span></label>
+          <select id="storeStatusInput" class="form-control" required aria-errormessage="err-store-status">
+            <option value="true">Aktif (Tampil di Form Pengajuan &amp; Dashboard)</option>
+            <option value="false">Nonaktif (Disembunyikan dari Form Pengajuan)</option>
+          </select>
+          <div id="err-store-status" class="error-msg"><span aria-hidden="true">❌</span> Pilih status operasional store.</div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('storeModal').close()">Batal</button>
+          <button type="submit" id="btnSaveStore" class="btn btn-primary">💾 Simpan Store</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 2: TAMBAH / EDIT USER & ROLE                                    -->
+  <!-- ===================================================================== -->
+  <dialog id="userModal" class="corp-modal">
+    <div class="modal-header">
+      <h3 style="margin:0; font-size:1.05rem;" id="userModalTitle">Tambah User / Role Baru</h3>
+      <button type="button" class="btn btn-outline" style="padding:0.25rem 0.6rem;" onclick="document.getElementById('userModal').close()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="userModalAlert" class="alert alert-error" style="display:none;"></div>
+      <form id="userForm" novalidate>
+        <input type="hidden" id="userFormId" value="">
+
+        <div class="grid-2">
+          <div class="field-group">
+            <label class="field-label" for="userNikInput">NIK Karyawan (6 Digit) <span class="req-star">*</span></label>
+            <input type="text" id="userNikInput" class="form-control" maxlength="6" pattern="^\d{6}$" inputmode="numeric" placeholder="Contoh: 121014" required aria-errormessage="err-user-nik">
+            <div id="err-user-nik" class="error-msg"><span aria-hidden="true">❌</span> NIK wajib terdiri dari 6 digit angka.</div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="userStoreInput">Unit Bisnis Store <span class="req-star">*</span></label>
+            <select id="userStoreInput" class="form-control" required aria-errormessage="err-user-store">
+              <option value="" disabled selected>-- Pilih Kode Store --</option>
+            </select>
+            <div id="err-user-store" class="error-msg"><span aria-hidden="true">❌</span> Pilih unit store tempat petugas bertugas.</div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="userNamaInput">Nama Lengkap Karyawan <span class="req-star">*</span></label>
+          <input type="text" id="userNamaInput" class="form-control" pattern="^[^0-9]+$" placeholder="Contoh: Achmad Fajar" required aria-errormessage="err-user-nama">
+          <div id="err-user-nama" class="error-msg"><span aria-hidden="true">❌</span> Nama lengkap wajib diisi &amp; tidak boleh mengandung angka.</div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="userEmailInput">Alamat Email Aktif <span class="req-star">*</span></label>
+          <input type="email" id="userEmailInput" class="form-control" placeholder="nama@email.com" required aria-errormessage="err-user-email">
+          <div id="err-user-email" class="error-msg"><span aria-hidden="true">❌</span> Masukkan format alamat email yang valid.</div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field-group">
+            <label class="field-label" for="userRoleInput">Role / Jabatan Sistem <span class="req-star">*</span></label>
+            <select id="userRoleInput" class="form-control" required aria-errormessage="err-user-role">
+              <option value="" disabled selected>-- Pilih Role --</option>
+              <option value="Manager">👔 Manager (Approval Step 2 &amp; Final Step 7)</option>
+              <option value="Senior Cashier">💼 Senior Cashier (Verif Step 3 &amp; Step 6)</option>
+              <option value="Admin">🛡️ Admin (Super Admin Pengelola Master)</option>
+              <option value="Requester">🙋 Requester (Pemohon Kasbon)</option>
+            </select>
+            <div id="err-user-role" class="error-msg"><span aria-hidden="true">❌</span> Pilih role petugas di sistem.</div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="userStatusInput">Status Akun <span class="req-star">*</span></label>
+            <select id="userStatusInput" class="form-control" required aria-errormessage="err-user-status">
+              <option value="true">Aktif</option>
+              <option value="false">Nonaktif</option>
+            </select>
+            <div id="err-user-status" class="error-msg"><span aria-hidden="true">❌</span> Pilih status keaktifan akun.</div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="userPinInput" id="userPinLabel">PIN / Password Login (Min 4 Karakter) <span class="req-star">*</span></label>
+          <input type="text" id="userPinInput" class="form-control" minlength="4" value="123123" placeholder="Default: 123123" required aria-errormessage="err-user-pin">
+          <div id="err-user-pin" class="error-msg"><span aria-hidden="true">❌</span> PIN minimal terdiri dari 4 karakter.</div>
+          <small id="userPinHint" style="color:var(--text-muted);">Gunakan PIN ini saat petugas login di Portal Manager / Cashier / Admin.</small>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('userModal').close()">Batal</button>
+          <button type="submit" id="btnSaveUser" class="btn btn-primary">💾 Simpan Data User</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 3: RESET PIN CEPAT                                              -->
+  <!-- ===================================================================== -->
+  <dialog id="pinModal" class="corp-modal" style="max-width:440px;">
+    <div class="modal-header">
+      <h3 style="margin:0; font-size:1.05rem;">🔑 Reset PIN / Password Petugas</h3>
+      <button type="button" class="btn btn-outline" style="padding:0.25rem 0.6rem;" onclick="document.getElementById('pinModal').close()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="pinModalAlert" class="alert alert-error" style="display:none;"></div>
+      <form id="pinForm" novalidate>
+        <input type="hidden" id="pinUserId" value="">
+        <p id="pinTargetInfo" style="font-size:0.9rem; color:var(--text-main); margin-top:0; font-weight:600;"></p>
+
+        <div class="field-group">
+          <label class="field-label" for="newPinInput">PIN / Password Baru <span class="req-star">*</span></label>
+          <input type="text" id="newPinInput" class="form-control" minlength="4" value="123123" required aria-errormessage="err-new-pin">
+          <div id="err-new-pin" class="error-msg"><span aria-hidden="true">❌</span> PIN baru minimal 4 karakter.</div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('pinModal').close()">Batal</button>
+          <button type="submit" id="btnSubmitPin" class="btn btn-primary">🔑 Simpan PIN Baru</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <script>
+    window.INITIAL_TAB = "<?= initialTab ?>";
+  </script>
+  <?!= include('SharedUtils'); ?>
+  <?!= include('Scripts'); ?>
+</body>
+</html>

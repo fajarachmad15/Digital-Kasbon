@@ -1,0 +1,729 @@
+<script>
+  /**
+   * ============================================================================
+   * MODULE: Scripts.html (PROJECT 6: GAS-PORTAL-ADMIN)
+   * DESCRIPTION: Client-side controller for Master Store, User Role & PIN Admin
+   * ============================================================================
+   */
+  const AdminApp = (function () {
+    let adminAuth = null; // { nik, password }
+    let adminUser = null;
+    let storesList = [];
+    let usersList = [];
+    let logsList = [];
+    let portalUrls = {};
+    let currentTab = 'stores';
+
+    function esc(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return esc(iso);
+      return d.toLocaleString('id-ID', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    function showNotice(msg) {
+      const nEl = document.getElementById('globalNotice');
+      const eEl = document.getElementById('globalError');
+      eEl.style.display = 'none';
+      if (!msg) {
+        nEl.style.display = 'none';
+        return;
+      }
+      nEl.textContent = '✅ ' + msg;
+      nEl.style.display = 'block';
+      setTimeout(function () {
+        nEl.style.display = 'none';
+      }, 6000);
+    }
+
+    function showError(msg) {
+      const nEl = document.getElementById('globalNotice');
+      const eEl = document.getElementById('globalError');
+      nEl.style.display = 'none';
+      if (!msg) {
+        eEl.style.display = 'none';
+        return;
+      }
+      eEl.textContent = '❌ ' + msg;
+      eEl.style.display = 'block';
+    }
+
+    function init() {
+      const loginForm = document.getElementById('adminLoginForm');
+      const storeForm = document.getElementById('storeForm');
+      const userForm = document.getElementById('userForm');
+      const pinForm = document.getElementById('pinForm');
+
+      KasbonClientUtils.initFormValidation(loginForm);
+      KasbonClientUtils.initFormValidation(storeForm);
+      KasbonClientUtils.initFormValidation(userForm);
+      KasbonClientUtils.initFormValidation(pinForm);
+
+      loginForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!loginForm.checkValidity()) {
+          const firstInvalid = loginForm.querySelector(':invalid');
+          if (firstInvalid) firstInvalid.focus();
+          return;
+        }
+        submitLogin();
+      });
+
+      storeForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!storeForm.checkValidity()) {
+          const firstInvalid = storeForm.querySelector(':invalid');
+          if (firstInvalid) firstInvalid.focus();
+          return;
+        }
+        submitStoreForm();
+      });
+
+      userForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!userForm.checkValidity()) {
+          const firstInvalid = userForm.querySelector(':invalid');
+          if (firstInvalid) firstInvalid.focus();
+          return;
+        }
+        submitUserForm();
+      });
+
+      pinForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!pinForm.checkValidity()) {
+          const firstInvalid = pinForm.querySelector(':invalid');
+          if (firstInvalid) firstInvalid.focus();
+          return;
+        }
+        submitPinForm();
+      });
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          portalUrls = res.portalUrls || {};
+          updateNavLinks();
+        })
+        .apiGetAdminInitData();
+    }
+
+    function updateNavLinks() {
+      const dashBtn = document.getElementById('navDashboardBtn');
+      const formBtn = document.getElementById('navFormBtn');
+      if (portalUrls.dashboard) dashBtn.href = portalUrls.dashboard;
+      if (portalUrls.pengajuan) formBtn.href = portalUrls.pengajuan;
+    }
+
+    function submitLogin() {
+      const nikVal = document.getElementById('loginNik').value.trim();
+      const pinVal = document.getElementById('loginPin').value.trim();
+      const alertEl = document.getElementById('loginAlert');
+      const btn = document.getElementById('btnLoginSubmit');
+
+      alertEl.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = '⏳ Memverifikasi Otoritas Admin...';
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          btn.textContent = '🔓 Masuk ke Panel Super Admin';
+          adminAuth = { nik: res.adminUser.nik, password: pinVal };
+          adminUser = res.adminUser;
+
+          document.getElementById('loginSection').style.display = 'none';
+          document.getElementById('workspaceSection').style.display = 'block';
+          document.getElementById('btnLogout').style.display = 'inline-flex';
+
+          const badge = document.getElementById('adminSessionBadge');
+          badge.textContent = '🛡️ ' + adminUser.nama_lengkap + ' (NIK: ' + adminUser.nik + ')';
+          badge.style.display = 'inline-block';
+
+          applyMasterResponse(res);
+
+          if (window.INITIAL_TAB && ['stores', 'users', 'logs'].indexOf(window.INITIAL_TAB) !== -1) {
+            switchTab(window.INITIAL_TAB);
+          }
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = '🔓 Masuk ke Panel Super Admin';
+          alertEl.textContent = err.message || String(err);
+          alertEl.style.display = 'block';
+        })
+        .apiLoginAndLoadMaster({ nik: nikVal, password: pinVal });
+    }
+
+    function logout() {
+      adminAuth = null;
+      adminUser = null;
+      document.getElementById('adminLoginForm').reset();
+      document.getElementById('workspaceSection').style.display = 'none';
+      document.getElementById('btnLogout').style.display = 'none';
+      document.getElementById('adminSessionBadge').style.display = 'none';
+      document.getElementById('loginSection').style.display = 'block';
+    }
+
+    function refreshAll() {
+      if (!adminAuth) return;
+      showError('');
+      google.script.run
+        .withSuccessHandler(function (res) {
+          applyMasterResponse(res);
+          showNotice('Data Master Store & User berhasil diperbarui dari Supabase.');
+        })
+        .withFailureHandler(function (err) {
+          showError('Gagal memuat ulang data: ' + (err.message || err));
+        })
+        .apiLoginAndLoadMaster(adminAuth);
+    }
+
+    function applyMasterResponse(res) {
+      storesList = res.stores || [];
+      usersList = res.users || [];
+      logsList = res.adminLogs || [];
+      if (res.portalUrls) {
+        portalUrls = res.portalUrls;
+        updateNavLinks();
+      }
+      if (res.updatedOwnPassword && adminAuth) {
+        adminAuth.password = res.updatedOwnPassword;
+      }
+      if (res.message) {
+        showNotice(res.message);
+      }
+
+      updateKpisAndCoverage();
+      populateStoreDropdowns();
+      renderStoresTable();
+      renderUsersTable();
+      renderLogsTable();
+    }
+
+    function updateKpisAndCoverage() {
+      let activeStores = 0;
+      let activeManagers = 0;
+      let activeCashiers = 0;
+      let activeAdmins = 0;
+
+      const storeStats = {};
+      for (let i = 0; i < storesList.length; i++) {
+        const s = storesList[i];
+        if (s.is_active) activeStores++;
+        storeStats[String(s.kode_store).toUpperCase()] = { mgr: 0, csr: 0 };
+      }
+
+      for (let j = 0; j < usersList.length; j++) {
+        const u = usersList[j];
+        if (!u.is_active) continue;
+        if (u.role === 'Manager') activeManagers++;
+        else if (u.role === 'Senior Cashier') activeCashiers++;
+        else if (u.role === 'Admin') activeAdmins++;
+
+        const stKey = String(u.kode_store).toUpperCase();
+        if (storeStats[stKey]) {
+          if (u.role === 'Manager') storeStats[stKey].mgr++;
+          if (u.role === 'Senior Cashier') storeStats[stKey].csr++;
+        }
+      }
+
+      document.getElementById('kpiActiveStores').textContent = activeStores;
+      document.getElementById('kpiTotalStores').textContent = 'Total terdaftar: ' + storesList.length + ' store';
+      document.getElementById('kpiActiveManagers').textContent = activeManagers;
+      document.getElementById('kpiActiveCashiers').textContent = activeCashiers;
+      document.getElementById('kpiActiveAdmins').textContent = activeAdmins;
+      document.getElementById('kpiTotalUsers').textContent = 'Total seluruh penugasan user: ' + usersList.length;
+
+      // Check active stores missing Manager or Senior Cashier
+      const incompleteStores = [];
+      for (let k = 0; k < storesList.length; k++) {
+        const st = storesList[k];
+        if (!st.is_active) continue;
+        const counts = storeStats[String(st.kode_store).toUpperCase()] || { mgr: 0, csr: 0 };
+        if (counts.mgr === 0 || counts.csr === 0) {
+          incompleteStores.push(st.kode_store + ' (' + st.nama_store + ')');
+        }
+      }
+
+      const warnEl = document.getElementById('coverageWarning');
+      if (incompleteStores.length > 0) {
+        warnEl.innerHTML = '⚠️ <strong>Perhatian Kesiapan Store:</strong> Store aktif berikut belum memiliki minimal 1 Manager dan 1 Senior Cashier aktif sehingga belum siap dipilih pada Form Pengajuan: <strong>' + esc(incompleteStores.join(', ')) + '</strong>. Silakan klik tombol <em>"+ Petugas"</em> pada tabel store di bawah.';
+        warnEl.style.display = 'block';
+      } else {
+        warnEl.style.display = 'none';
+      }
+    }
+
+    function populateStoreDropdowns() {
+      const filterSel = document.getElementById('filterUserStore');
+      const modalSel = document.getElementById('userStoreInput');
+      const prevFilterVal = filterSel.value;
+      const prevModalVal = modalSel.value;
+
+      let filterHtml = '<option value="ALL">Semua Store</option>';
+      let modalHtml = '<option value="" disabled selected>-- Pilih Kode Store --</option>';
+
+      for (let i = 0; i < storesList.length; i++) {
+        const s = storesList[i];
+        const statusSuffix = s.is_active ? '' : ' (Nonaktif)';
+        const opt = '<option value="' + esc(s.kode_store) + '">' + esc(s.kode_store) + ' - ' + esc(s.nama_store) + statusSuffix + '</option>';
+        filterHtml += opt;
+        modalHtml += opt;
+      }
+
+      filterSel.innerHTML = filterHtml;
+      modalSel.innerHTML = modalHtml;
+
+      if (prevFilterVal) filterSel.value = prevFilterVal;
+      if (prevModalVal) modalSel.value = prevModalVal;
+    }
+
+    function switchTab(tabName) {
+      currentTab = tabName;
+      document.getElementById('tabBtnStores').classList.toggle('active', tabName === 'stores');
+      document.getElementById('tabBtnUsers').classList.toggle('active', tabName === 'users');
+      document.getElementById('tabBtnLogs').classList.toggle('active', tabName === 'logs');
+
+      document.getElementById('tabPanelStores').style.display = tabName === 'stores' ? 'block' : 'none';
+      document.getElementById('tabPanelUsers').style.display = tabName === 'users' ? 'block' : 'none';
+      document.getElementById('tabPanelLogs').style.display = tabName === 'logs' ? 'block' : 'none';
+    }
+
+    function renderStoresTable() {
+      const q = (document.getElementById('searchStoreInput').value || '').trim().toLowerCase();
+      const tbody = document.getElementById('storesTableBody');
+
+      // Map active officer counts per store
+      const countsMap = {};
+      for (let i = 0; i < usersList.length; i++) {
+        const u = usersList[i];
+        if (!u.is_active) continue;
+        const k = String(u.kode_store).toUpperCase();
+        if (!countsMap[k]) countsMap[k] = { mgr: 0, csr: 0 };
+        if (u.role === 'Manager') countsMap[k].mgr++;
+        else if (u.role === 'Senior Cashier') countsMap[k].csr++;
+      }
+
+      const filtered = storesList.filter(function (s) {
+        if (!q) return true;
+        return (s.kode_store + ' ' + s.nama_store).toLowerCase().indexOf(q) !== -1;
+      });
+
+      document.getElementById('storeCountLabel').textContent = 'Menampilkan ' + filtered.length + ' dari ' + storesList.length + ' store';
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data store yang sesuai pencarian.</td></tr>';
+        return;
+      }
+
+      let html = '';
+      for (let j = 0; j < filtered.length; j++) {
+        const s = filtered[j];
+        const stCode = String(s.kode_store).toUpperCase();
+        const c = countsMap[stCode] || { mgr: 0, csr: 0 };
+        const isReady = s.is_active && c.mgr >= 1 && c.csr >= 1;
+
+        const mgrBadge = c.mgr >= 1
+          ? '<span class="badge badge-done">✓ ' + c.mgr + ' Manager</span>'
+          : '<span class="badge badge-reject">0 Manager</span>';
+        const csrBadge = c.csr >= 1
+          ? '<span class="badge badge-done">✓ ' + c.csr + ' Cashier</span>'
+          : '<span class="badge badge-reject">0 Cashier</span>';
+
+        let readyBadge = '<span class="badge badge-wait">⏳ Belum Lengkap</span>';
+        if (!s.is_active) {
+          readyBadge = '<span class="badge badge-reject">Nonaktif</span>';
+        } else if (isReady) {
+          readyBadge = '<span class="badge badge-done">✅ Siap Transaksi</span>';
+        }
+
+        const statusBadge = s.is_active
+          ? '<span class="badge badge-done">Aktif</span>'
+          : '<span class="badge badge-reject">Nonaktif</span>';
+
+        const toggleBtnLabel = s.is_active ? 'Nonaktifkan' : 'Aktifkan';
+        const nextStatusBool = !s.is_active;
+
+        html += '<tr>'
+          + '<td><span class="badge badge-info" style="font-size:0.85rem;">' + esc(s.kode_store) + '</span></td>'
+          + '<td><strong>' + esc(s.nama_store) + '</strong></td>'
+          + '<td>' + mgrBadge + '</td>'
+          + '<td>' + csrBadge + '</td>'
+          + '<td>' + readyBadge + '</td>'
+          + '<td>' + statusBadge + '</td>'
+          + '<td style="white-space:nowrap; display:flex; gap:0.35rem; flex-wrap:wrap;">'
+          + '<button type="button" class="btn btn-outline" style="padding:0.32rem 0.65rem; font-size:0.78rem;" onclick="AdminApp.openStoreModal(\'edit\', \'' + esc(s.kode_store) + '\')">✏️ Edit</button>'
+          + '<button type="button" class="btn btn-outline" style="padding:0.32rem 0.65rem; font-size:0.78rem;" onclick="AdminApp.openUserModal(\'create\', \'' + esc(s.kode_store) + '\')">+ Petugas</button>'
+          + '<button type="button" class="btn btn-outline" style="padding:0.32rem 0.65rem; font-size:0.78rem;" onclick="AdminApp.toggleStore(\'' + esc(s.kode_store) + '\', ' + nextStatusBool + ')">🔄 ' + toggleBtnLabel + '</button>'
+          + '</td>'
+          + '</tr>';
+      }
+      tbody.innerHTML = html;
+    }
+
+    function renderUsersTable() {
+      const storeFilter = document.getElementById('filterUserStore').value;
+      const roleFilter = document.getElementById('filterUserRole').value;
+      const statusFilter = document.getElementById('filterUserStatus').value;
+      const q = (document.getElementById('searchUserInput').value || '').trim().toLowerCase();
+      const tbody = document.getElementById('usersTableBody');
+
+      const storeNameMap = {};
+      for (let i = 0; i < storesList.length; i++) {
+        storeNameMap[String(storesList[i].kode_store).toUpperCase()] = storesList[i].nama_store;
+      }
+
+      const filtered = usersList.filter(function (u) {
+        if (storeFilter !== 'ALL' && String(u.kode_store).toUpperCase() !== storeFilter.toUpperCase()) return false;
+        if (roleFilter !== 'ALL' && u.role !== roleFilter) return false;
+        if (statusFilter === 'ACTIVE' && !u.is_active) return false;
+        if (statusFilter === 'INACTIVE' && u.is_active) return false;
+        if (q) {
+          const hay = (u.nik + ' ' + u.nama_lengkap + ' ' + u.email + ' ' + u.kode_store + ' ' + u.role).toLowerCase();
+          if (hay.indexOf(q) === -1) return false;
+        }
+        return true;
+      });
+
+      document.getElementById('userCountLabel').textContent = 'Menampilkan ' + filtered.length + ' dari ' + usersList.length + ' penugasan user';
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data user yang sesuai filter.</td></tr>';
+        return;
+      }
+
+      let html = '';
+      for (let j = 0; j < filtered.length; j++) {
+        const u = filtered[j];
+        let roleCls = 'role-requester';
+        let roleIcon = '🙋';
+        if (u.role === 'Admin') { roleCls = 'role-admin'; roleIcon = '🛡️'; }
+        else if (u.role === 'Manager') { roleCls = 'role-manager'; roleIcon = '👔'; }
+        else if (u.role === 'Senior Cashier') { roleCls = 'role-cashier'; roleIcon = '💼'; }
+
+        const stName = storeNameMap[String(u.kode_store).toUpperCase()] || '';
+        const statusBadge = u.is_active
+          ? '<span class="badge badge-done">Aktif</span>'
+          : '<span class="badge badge-reject">Nonaktif</span>';
+
+        const nextStatusBool = !u.is_active;
+        const toggleLabel = u.is_active ? 'Nonaktifkan' : 'Aktifkan';
+
+        html += '<tr>'
+          + '<td><code style="font-weight:700; font-size:0.9rem;">' + esc(u.nik) + '</code></td>'
+          + '<td><strong>' + esc(u.nama_lengkap) + '</strong></td>'
+          + '<td>' + esc(u.email) + '</td>'
+          + '<td><span class="badge badge-info">' + esc(u.kode_store) + '</span><br><small style="color:var(--text-muted);">' + esc(stName) + '</small></td>'
+          + '<td><span class="role-badge ' + roleCls + '">' + roleIcon + ' ' + esc(u.role) + '</span></td>'
+          + '<td><code style="background:#f1f5f9; padding:0.15rem 0.45rem; border-radius:4px;">' + esc(u.password_pin || '123123') + '</code></td>'
+          + '<td>' + statusBadge + '</td>'
+          + '<td style="white-space:nowrap; display:flex; gap:0.35rem; flex-wrap:wrap;">'
+          + '<button type="button" class="btn btn-outline" style="padding:0.32rem 0.6rem; font-size:0.78rem;" onclick="AdminApp.openUserModal(\'edit\', \'' + esc(u.id) + '\')">✏️ Edit / Role</button>'
+          + '<button type="button" class="btn btn-outline" style="padding:0.32rem 0.6rem; font-size:0.78rem;" onclick="AdminApp.openPinModal(\'' + esc(u.id) + '\')">🔑 Reset PIN</button>'
+          + '<button type="button" class="btn btn-outline" style="padding:0.32rem 0.6rem; font-size:0.78rem;" onclick="AdminApp.toggleUser(\'' + esc(u.id) + '\', ' + nextStatusBool + ')">🔄 ' + toggleLabel + '</button>'
+          + '<button type="button" class="btn btn-outline" style="padding:0.32rem 0.6rem; font-size:0.78rem; color:var(--danger-text);" onclick="AdminApp.deleteUser(\'' + esc(u.id) + '\')">🗑️</button>'
+          + '</td>'
+          + '</tr>';
+      }
+      tbody.innerHTML = html;
+    }
+
+    function renderLogsTable() {
+      const tbody = document.getElementById('logsTableBody');
+      if (!logsList || logsList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada riwayat aktivitas admin.</td></tr>';
+        return;
+      }
+
+      let html = '';
+      for (let i = 0; i < logsList.length; i++) {
+        const l = logsList[i];
+        html += '<tr>'
+          + '<td style="white-space:nowrap;">' + fmtDate(l.created_at) + '</td>'
+          + '<td><span class="badge badge-info">' + esc(l.action_type) + '</span></td>'
+          + '<td><strong>' + esc(l.target_entity) + ':</strong> ' + esc(l.target_id) + '</td>'
+          + '<td>' + esc(l.actor_name) + ' <small style="color:var(--text-muted);">(' + esc(l.actor_nik) + ')</small></td>'
+          + '<td>' + esc(l.details) + '</td>'
+          + '</tr>';
+      }
+      tbody.innerHTML = html;
+    }
+
+    // =========================================================================
+    // STORE MODAL & ACTIONS
+    // =========================================================================
+    function openStoreModal(mode, kodeStore) {
+      const modal = document.getElementById('storeModal');
+      const form = document.getElementById('storeForm');
+      const alertEl = document.getElementById('storeModalAlert');
+      alertEl.style.display = 'none';
+      form.reset();
+
+      document.getElementById('storeFormMode').value = mode;
+      const kodeInput = document.getElementById('storeKodeInput');
+      const namaInput = document.getElementById('storeNamaInput');
+      const statusInput = document.getElementById('storeStatusInput');
+
+      if (mode === 'edit' && kodeStore) {
+        document.getElementById('storeModalTitle').textContent = '✏️ Edit Unit Bisnis Store: ' + kodeStore;
+        const found = storesList.find(function (s) {
+          return String(s.kode_store).toUpperCase() === String(kodeStore).toUpperCase();
+        });
+        if (found) {
+          kodeInput.value = found.kode_store;
+          kodeInput.readOnly = true;
+          namaInput.value = found.nama_store;
+          statusInput.value = found.is_active ? 'true' : 'false';
+        }
+      } else {
+        document.getElementById('storeModalTitle').textContent = '+ Tambah Unit Bisnis Store Baru';
+        kodeInput.readOnly = false;
+        statusInput.value = 'true';
+      }
+
+      modal.showModal();
+    }
+
+    function submitStoreForm() {
+      const btn = document.getElementById('btnSaveStore');
+      const alertEl = document.getElementById('storeModalAlert');
+      alertEl.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = '⏳ Menyimpan...';
+
+      const payload = {
+        auth: adminAuth,
+        mode: document.getElementById('storeFormMode').value,
+        kodeStore: document.getElementById('storeKodeInput').value.trim().toUpperCase(),
+        namaStore: document.getElementById('storeNamaInput').value.trim(),
+        isActive: document.getElementById('storeStatusInput').value === 'true'
+      };
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          btn.textContent = '💾 Simpan Store';
+          document.getElementById('storeModal').close();
+          applyMasterResponse(res);
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = '💾 Simpan Store';
+          alertEl.textContent = err.message || String(err);
+          alertEl.style.display = 'block';
+        })
+        .apiSaveStore(payload);
+    }
+
+    function toggleStore(kodeStore, nextState) {
+      showError('');
+      google.script.run
+        .withSuccessHandler(function (res) {
+          applyMasterResponse(res);
+        })
+        .withFailureHandler(function (err) {
+          showError(err.message || String(err));
+        })
+        .apiToggleStoreStatus({
+          auth: adminAuth,
+          kodeStore: kodeStore,
+          isActive: nextState
+        });
+    }
+
+    // =========================================================================
+    // USER & ROLE MODAL & ACTIONS
+    // =========================================================================
+    function openUserModal(mode, idOrStoreKode) {
+      const modal = document.getElementById('userModal');
+      const form = document.getElementById('userForm');
+      const alertEl = document.getElementById('userModalAlert');
+      alertEl.style.display = 'none';
+      form.reset();
+
+      const idInput = document.getElementById('userFormId');
+      const nikInput = document.getElementById('userNikInput');
+      const storeInput = document.getElementById('userStoreInput');
+      const namaInput = document.getElementById('userNamaInput');
+      const emailInput = document.getElementById('userEmailInput');
+      const roleInput = document.getElementById('userRoleInput');
+      const statusInput = document.getElementById('userStatusInput');
+      const pinInput = document.getElementById('userPinInput');
+
+      if (mode === 'edit' && idOrStoreKode) {
+        const u = usersList.find(function (item) {
+          return String(item.id) === String(idOrStoreKode);
+        });
+        if (!u) return;
+
+        document.getElementById('userModalTitle').textContent = '✏️ Edit User & Role: ' + u.nama_lengkap;
+        idInput.value = u.id;
+        nikInput.value = u.nik;
+        storeInput.value = u.kode_store;
+        namaInput.value = u.nama_lengkap;
+        emailInput.value = u.email;
+        roleInput.value = u.role;
+        statusInput.value = u.is_active ? 'true' : 'false';
+        pinInput.value = u.password_pin || '123123';
+      } else {
+        document.getElementById('userModalTitle').textContent = '+ Tambah Petugas / Role Baru';
+        idInput.value = '';
+        pinInput.value = '123123';
+        statusInput.value = 'true';
+        if (idOrStoreKode) {
+          storeInput.value = idOrStoreKode;
+        }
+      }
+
+      modal.showModal();
+    }
+
+    function submitUserForm() {
+      const btn = document.getElementById('btnSaveUser');
+      const alertEl = document.getElementById('userModalAlert');
+      alertEl.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = '⏳ Menyimpan...';
+
+      const payload = {
+        auth: adminAuth,
+        id: document.getElementById('userFormId').value.trim(),
+        nik: document.getElementById('userNikInput').value.trim(),
+        kodeStore: document.getElementById('userStoreInput').value.trim(),
+        namaLengkap: document.getElementById('userNamaInput').value.trim(),
+        email: document.getElementById('userEmailInput').value.trim(),
+        role: document.getElementById('userRoleInput').value.trim(),
+        isActive: document.getElementById('userStatusInput').value === 'true',
+        passwordPin: document.getElementById('userPinInput').value.trim()
+      };
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          btn.textContent = '💾 Simpan Data User';
+          document.getElementById('userModal').close();
+          applyMasterResponse(res);
+          switchTab('users');
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = '💾 Simpan Data User';
+          alertEl.textContent = err.message || String(err);
+          alertEl.style.display = 'block';
+        })
+        .apiSaveUser(payload);
+    }
+
+    function openPinModal(userId) {
+      const u = usersList.find(function (item) {
+        return String(item.id) === String(userId);
+      });
+      if (!u) return;
+
+      document.getElementById('pinModalAlert').style.display = 'none';
+      document.getElementById('pinUserId').value = u.id;
+      document.getElementById('pinTargetInfo').textContent = u.nik + ' - ' + u.nama_lengkap + ' (' + u.role + ' @ ' + u.kode_store + ')';
+      document.getElementById('newPinInput').value = '123123';
+      document.getElementById('pinModal').showModal();
+    }
+
+    function submitPinForm() {
+      const btn = document.getElementById('btnSubmitPin');
+      const alertEl = document.getElementById('pinModalAlert');
+      alertEl.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = '⏳ Menyimpan...';
+
+      const payload = {
+        auth: adminAuth,
+        userId: document.getElementById('pinUserId').value,
+        newPin: document.getElementById('newPinInput').value.trim()
+      };
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          btn.textContent = '🔑 Simpan PIN Baru';
+          document.getElementById('pinModal').close();
+          applyMasterResponse(res);
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = '🔑 Simpan PIN Baru';
+          alertEl.textContent = err.message || String(err);
+          alertEl.style.display = 'block';
+        })
+        .apiResetUserPin(payload);
+    }
+
+    function toggleUser(userId, nextState) {
+      showError('');
+      google.script.run
+        .withSuccessHandler(function (res) {
+          applyMasterResponse(res);
+        })
+        .withFailureHandler(function (err) {
+          showError(err.message || String(err));
+        })
+        .apiToggleUserStatus({
+          auth: adminAuth,
+          userId: userId,
+          isActive: nextState
+        });
+    }
+
+    function deleteUser(userId) {
+      const u = usersList.find(function (item) {
+        return String(item.id) === String(userId);
+      });
+      if (!u) return;
+      if (!confirm('Hapus penugasan ' + u.nama_lengkap + ' (NIK: ' + u.nik + ') sebagai ' + u.role + ' di Store ' + u.kode_store + '?')) {
+        return;
+      }
+
+      showError('');
+      google.script.run
+        .withSuccessHandler(function (res) {
+          applyMasterResponse(res);
+        })
+        .withFailureHandler(function (err) {
+          showError(err.message || String(err));
+        })
+        .apiDeleteUser({
+          auth: adminAuth,
+          userId: userId
+        });
+    }
+
+    return {
+      init: init,
+      logout: logout,
+      refreshAll: refreshAll,
+      switchTab: switchTab,
+      renderStoresTable: renderStoresTable,
+      renderUsersTable: renderUsersTable,
+      openStoreModal: openStoreModal,
+      toggleStore: toggleStore,
+      openUserModal: openUserModal,
+      openPinModal: openPinModal,
+      toggleUser: toggleUser,
+      deleteUser: deleteUser
+    };
+  })();
+
+  document.addEventListener('DOMContentLoaded', function () {
+    AdminApp.init();
+  });
+</script>
