@@ -122,43 +122,10 @@ def main():
     with open(deps_file, "r", encoding="utf-8") as f:
         deps_data = json.load(f)
 
-    # Step 1: Sync gas-common first
+    # Step 1: Sync gas-common across all 6 projects
     subprocess.run(["python", "scripts/sync_gas_common.py"], cwd=BASE_DIR, check=True)
 
-    # Step 2: Push and deploy gas-portal-admin to get its verified WEB_APP URL
-    admin_info = deps_data["portalAdmin"]
-    admin_folder = os.path.join(BASE_DIR, admin_info["folder"])
-    print(f"[*] Deploying gas-portal-admin ({admin_info['script_id']})...")
-    admin_res = push_and_deploy_project(
-        token,
-        admin_info["script_id"],
-        admin_folder,
-        existing_dep_id=None, # Create fresh WEB_APP deployment since v1 had no webapp manifest
-        desc="Live Web App Portal Admin v1.0"
-    )
-    admin_url = admin_res["web_app_url"]
-    admin_dep_id = admin_res["deployment_id"]
-    print(f"    -> Verified Admin WEB_APP URL: {admin_url} (files={admin_res['pushed_files']}, v={admin_res['version_number']})")
-
-    # Step 3: Update gas-common/Config.gs with the verified URL_PORTAL_ADMIN
-    cfg_path = os.path.join(BASE_DIR, "gas-common", "Config.gs")
-    with open(cfg_path, "r", encoding="utf-8") as f:
-        cfg_text = f.read()
-    cfg_text = re.sub(
-        r"URL_PORTAL_ADMIN:\s*'[^']*'",
-        f"URL_PORTAL_ADMIN: '{admin_url}'",
-        cfg_text
-    )
-    with open(cfg_path, "w", encoding="utf-8") as f:
-        f.write(cfg_text)
-
-    # Step 4: Re-sync gas-common across all 6 projects
-    subprocess.run(["python", "scripts/sync_gas_common.py"], cwd=BASE_DIR, check=True)
-
-    # Step 5: Push & update deployments for all 6 projects so all of them have the latest Config.gs & SupabaseClient.gs
-    deps_data["portalAdmin"]["deployment_id"] = admin_dep_id
-    deps_data["portalAdmin"]["url"] = admin_url
-
+    # Step 2: Push & update deployments for all 6 projects
     for key, info in deps_data.items():
         folder_path = os.path.join(BASE_DIR, info["folder"])
         sid = info["script_id"]
@@ -168,16 +135,16 @@ def main():
             sid,
             folder_path,
             existing_dep_id=dep_id,
-            desc="Enterprise Interconnected Release v2.0"
+            desc="Enterprise Google Drive Storage + Supabase Text DB Release v2.1"
         )
         info["deployment_id"] = res["deployment_id"]
         info["url"] = res["web_app_url"]
-        print(f"[OK] {key:16} | files={res['pushed_files']} | v={res['version_number']} | {res['web_app_url']}")
+        print(f"[OK] {key:16} | files={res['pushed_files']} | v={res['version_number']} | {res['web_app_url']}", flush=True)
 
     with open(deps_file, "w", encoding="utf-8") as f:
         json.dump(deps_data, f, indent=2)
 
-    print("\nALL 6 PROJECTS VERIFIED AND LIVE!")
+    print("\nALL 6 PROJECTS VERIFIED AND LIVE WITH GOOGLE DRIVE STORAGE!", flush=True)
 
 if __name__ == "__main__":
     main()

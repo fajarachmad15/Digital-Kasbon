@@ -10,8 +10,12 @@ const AppConfig = (function () {
   const DEFAULT_CONFIG = {
     SUPABASE_URL: 'https://uvjtzkpyunfuzcbhubpg.supabase.co',
     SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2anR6a3B5dW5mdXpjYmh1YnBnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDMxMjkxNCwiZXhwIjoyMDk1ODg4OTE0fQ.khqhowBMuwRSkHQPJaR0bd_ZeCZ5QuIjC3a50XTxaQo',
+    STORAGE_PROVIDER: 'DRIVE', // 'DRIVE' (Google Drive) | 'SUPABASE'
+    DRIVE_ROOT_FOLDER_NAME: 'Digital Kasbon Bukti',
+    DRIVE_ROOT_FOLDER_ID: '',
+    DRIVE_MAX_FOLDER_BYTES: 950 * 1024 * 1024, // Jaga kapasitas folder tetap di bawah 1 GB (950 MB)
     STORAGE_BUCKET: 'kasbon-attachments',
-    MAX_UPLOAD_BYTES: 5 * 1024 * 1024, // 5 MB
+    MAX_UPLOAD_BYTES: 1 * 1024 * 1024, // Maksimal 1 MB per file (setelah kompresi otomatis ~150-220 KB)
     TIMEZONE: 'Asia/Jakarta',
 
     // Interconnected Web App URLs (Live Deployed)
