@@ -1,0 +1,287 @@
+<script>
+  /**
+   * ============================================================================
+   * MODULE: Scripts.html (PROJECT 5: GAS-PORTAL-REQUESTER)
+   * DESCRIPTION: Client-side logic for Requester Money Receipt (Step 4) & Realization (Step 5)
+   * ============================================================================
+   */
+  const RequesterApp = (function () {
+    let currentRecord = null;
+    let verifiedCreds = null;
+    let portalUrls = {};
+
+    function esc(str) {
+      if (str === null || str === undefined) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? esc(iso) : d.toLocaleString('id-ID');
+    }
+
+    function showAlert(msg, isSuccess) {
+      const el = document.getElementById('portalAlert');
+      if (!msg) {
+        el.style.display = 'none';
+        return;
+      }
+      el.className = 'alert ' + (isSuccess ? 'alert-success' : 'alert-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function init() {
+      const loginForm = document.getElementById('reqLoginForm');
+      KasbonClientUtils.initFormValidation(loginForm);
+
+      loginForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!loginForm.checkValidity()) return;
+        verifyLogin();
+      });
+
+      loadTask(window.INITIAL_QUERY_ID || '');
+    }
+
+    function loadTask(idStr) {
+      showAlert('');
+      const cleanId = (idStr || '').trim().toUpperCase();
+      document.getElementById('searchIdInput').value = cleanId;
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          portalUrls = res.portalUrls || {};
+          if (portalUrls.dashboard) {
+            document.getElementById('navDashboardBtn').href = portalUrls.dashboard;
+          }
+
+          if (res.mode === 'QUEUE') {
+            renderQueue(res.queue || []);
+          } else {
+            renderDetail(res.record);
+          }
+        })
+        .withFailureHandler(function (err) {
+          showAlert(err.message || String(err));
+        })
+        .apiGetRequesterTask(cleanId);
+    }
+
+    function renderQueue(items) {
+      document.getElementById('detailSection').style.display = 'none';
+      const qSec = document.getElementById('queueSection');
+      qSec.style.display = 'block';
+      const container = document.getElementById('queueListContainer');
+
+      if (!items || items.length === 0) {
+        container.innerHTML = '<div class="alert alert-info" style="margin-bottom:0;">🎉 Tidak ada antrean konfirmasi terima uang atau laporan realisasi saat ini.</div>';
+        return;
+      }
+
+      let html = '<div style="display:grid; gap:0.75rem;">';
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const stepBadge = it.overall_status === 'WAITING_MONEY_RECEIPT'
+          ? '<span class="badge badge-wait">Step 4: Konfirmasi Uang Diterima</span>'
+          : '<span class="badge badge-info">Step 5: Input Laporan Realisasi</span>';
+
+        html += '<div style="border:1px solid var(--border-color); border-radius:10px; padding:1rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">'
+          + '<div>'
+          + '<div><strong>' + esc(it.no_pengajuan) + '</strong> &bull; <span class="badge badge-info">' + esc(it.kode_store) + '</span> ' + stepBadge + '</div>'
+          + '<div style="font-size:0.9rem; margin-top:0.25rem;">Pemohon: <strong>' + esc(it.dibayarkan_kepada) + '</strong> (' + esc(it.nip_req) + ') &bull; Senilai: <strong>' + KasbonClientUtils.formatRupiah(it.nominal) + '</strong></div>'
+          + '<div style="font-size:0.825rem; color:var(--text-muted);">Keperluan: ' + esc(it.keperluan) + ' | Janji: ' + esc(it.janji_penyelesaian) + '</div>'
+          + '</div>'
+          + '<button type="button" class="btn btn-primary" onclick="RequesterApp.loadTask(\'' + esc(it.no_pengajuan) + '\')">Proses Sekarang →</button>'
+          + '</div>';
+      }
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function renderDetail(r) {
+      currentRecord = r;
+
+      document.getElementById('queueSection').style.display = 'none';
+      document.getElementById('detailSection').style.display = 'block';
+      document.getElementById('step4ActionCard').style.display = 'none';
+      document.getElementById('step5ActionCard').style.display = 'none';
+      document.getElementById('notRequesterTurnCard').style.display = 'none';
+
+      document.getElementById('detailStatusBadge').textContent = r.status_label;
+
+      const lampiranReq = (r.bukti_lampiran_req && r.bukti_lampiran_req !== '-')
+        ? '<a href="' + esc(r.bukti_lampiran_req) + '" target="_blank">Lihat Bukti Pengajuan ↗</a>'
+        : '-';
+
+      document.getElementById('detailInfoGrid').innerHTML = ''
+        + '<div class="info-label">Nomor Pengajuan Kasbon</div><div class="info-val">' + esc(r.no_pengajuan) + '</div>'
+        + '<div class="info-label">Tgl &amp; Jam Pengajuan</div><div class="info-val">' + fmtDate(r.timestamp_req) + '</div>'
+        + '<div class="info-label">Unit Bisnis Store</div><div class="info-val">' + esc(r.kode_store) + ' - ' + esc(r.nama_store) + '</div>'
+        + '<div class="info-label">Dibayarkan Kepada</div><div class="info-val">' + esc(r.dibayarkan_kepada) + ' / ' + esc(r.nip_req) + '</div>'
+        + '<div class="info-label">Email Request</div><div class="info-val">' + esc(r.email_request) + '</div>'
+        + '<div class="info-label">Departemen</div><div class="info-val">' + esc(r.departemen) + '</div>'
+        + '<div class="info-label">Senilai</div><div class="info-val">' + KasbonClientUtils.formatRupiah(r.nominal) + '</div>'
+        + '<div class="info-label">Untuk Keperluan</div><div class="info-val">' + esc(r.keperluan) + '</div>'
+        + '<div class="info-label">Approval Pendukung</div><div class="info-val">' + lampiranReq + '</div>'
+        + '<div class="info-label">Janji Penyelesaian</div><div class="info-val">' + esc(r.janji_penyelesaian) + '</div>';
+
+      document.getElementById('detailTerbilangBox').textContent = r.terbilang_req;
+      onRealisasiNominalChange();
+
+      const isRequesterTurn = (r.overall_status === 'WAITING_MONEY_RECEIPT' || r.overall_status === 'WAITING_REALIZATION_INPUT');
+      if (isRequesterTurn) {
+        if (verifiedCreds) {
+          document.getElementById('loginCard').style.display = 'none';
+          showStepActionCard();
+        } else {
+          document.getElementById('loginCard').style.display = 'block';
+          document.getElementById('requesterAuthCaption').textContent =
+            'Masukkan NIP Pemohon (' + r.dibayarkan_kepada + ') dan 6 karakter pertama dari email pengajuan (' + r.email_request + ').';
+        }
+      } else {
+        document.getElementById('loginCard').style.display = 'none';
+        document.getElementById('notRequesterTurnCard').style.display = 'block';
+        document.getElementById('notRequesterTurnMsg').innerHTML =
+          'ℹ️ Pengajuan ini saat ini berstatus: <strong>' + esc(r.status_label) + '</strong>.<br>Tidak ada tindakan yang diperlukan dari Pemohon pada tahap ini.';
+      }
+    }
+
+    function showStepActionCard() {
+      if (currentRecord.overall_status === 'WAITING_MONEY_RECEIPT') {
+        document.getElementById('step4ActionCard').style.display = 'block';
+      } else if (currentRecord.overall_status === 'WAITING_REALIZATION_INPUT') {
+        document.getElementById('step5ActionCard').style.display = 'block';
+      }
+    }
+
+    function verifyLogin() {
+      showAlert('');
+      const nip = document.getElementById('reqNip').value;
+      const password = document.getElementById('reqPass').value;
+      const btn = document.getElementById('btnVerifyReq');
+      btn.disabled = true;
+      btn.textContent = '⏳ Memvalidasi Identitas...';
+
+      google.script.run
+        .withSuccessHandler(function () {
+          btn.disabled = false;
+          btn.textContent = '🔓 Masuk Portal Pemohon';
+          verifiedCreds = { nip: nip, password: password };
+          document.getElementById('loginCard').style.display = 'none';
+          showStepActionCard();
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = '🔓 Masuk Portal Pemohon';
+          showAlert(err.message || String(err));
+        })
+        .apiVerifyRequester({
+          noPengajuan: currentRecord.no_pengajuan,
+          nip: nip,
+          password: password
+        });
+    }
+
+    function submitStep4() {
+      showAlert('');
+      const btn = document.getElementById('btnConfirmCash');
+      btn.disabled = true;
+      btn.textContent = '⏳ Menyimpan Konfirmasi Penerimaan Uang...';
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          btn.textContent = '✓ Konfirmasi Uang Sudah Diterima dan Sesuai';
+          showAlert('✅ Konfirmasi penerimaan uang berhasil disimpan! Anda dapat langsung melanjutkan pengisian Laporan Realisasi di bawah ini.', true);
+          loadTask(res.noPengajuan);
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = '✓ Konfirmasi Uang Sudah Diterima dan Sesuai';
+          showAlert(err.message || String(err));
+        })
+        .apiConfirmMoneyReceived({
+          noPengajuan: currentRecord.no_pengajuan,
+          nip: verifiedCreds.nip,
+          password: verifiedCreds.password
+        });
+    }
+
+    function onRealisasiNominalChange() {
+      if (!currentRecord) return;
+      const nominalAwal = Math.floor(Number(currentRecord.nominal) || 0);
+      const uangDigunakan = Math.max(0, Math.floor(Number(document.getElementById('uangDigunakan').value) || 0));
+      const selisih = nominalAwal - uangDigunakan;
+
+      let valKembali = 0;
+      let valTerima = 0;
+      if (uangDigunakan < nominalAwal) {
+        valKembali = selisih;
+      } else if (uangDigunakan > nominalAwal) {
+        valTerima = Math.abs(selisih);
+      }
+
+      document.getElementById('terbilangGunaBox').textContent = KasbonClientUtils.formatTerbilang(uangDigunakan);
+      document.getElementById('valKembaliDisplay').value = KasbonClientUtils.formatRupiah(valKembali);
+      document.getElementById('txtKembaliBox').textContent = KasbonClientUtils.formatTerbilang(valKembali);
+      document.getElementById('valTerimaDisplay').value = KasbonClientUtils.formatRupiah(valTerima);
+      document.getElementById('txtTerimaBox').textContent = KasbonClientUtils.formatTerbilang(valTerima);
+    }
+
+    async function submitStep5() {
+      showAlert('');
+      const uangDigunakan = document.getElementById('uangDigunakan').value;
+      const fileInput = document.getElementById('fileBuktiRealisasi');
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        showAlert('Harap lengkapi Bukti Lampiran Realisasi (Foto Nota & Item).');
+        return;
+      }
+
+      const btn = document.getElementById('btnSubmitStep5');
+      btn.disabled = true;
+      btn.textContent = '⏳ Mengunggah Bukti & Menyimpan Realisasi...';
+
+      try {
+        const filePayload = await KasbonClientUtils.prepareFilePayload(fileInput, 1600);
+        google.script.run
+          .withSuccessHandler(function (res) {
+            btn.disabled = false;
+            btn.textContent = '🚀 Kirim Laporan Realisasi';
+            showAlert('✅ Laporan Realisasi untuk ' + res.noPengajuan + ' berhasil dikirim! Menunggu Verifikasi Realisasi oleh Senior Cashier.', true);
+            loadTask(res.noPengajuan);
+          })
+          .withFailureHandler(function (err) {
+            btn.disabled = false;
+            btn.textContent = '🚀 Kirim Laporan Realisasi';
+            showAlert(err.message || String(err));
+          })
+          .apiSubmitRealization({
+            noPengajuan: currentRecord.no_pengajuan,
+            nip: verifiedCreds.nip,
+            password: verifiedCreds.password,
+            uangDigunakan: uangDigunakan,
+            filePayload: filePayload
+          });
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '🚀 Kirim Laporan Realisasi';
+        showAlert(e.message || String(e));
+      }
+    }
+
+    return {
+      init: init,
+      loadTask: loadTask,
+      submitStep4: submitStep4,
+      onRealisasiNominalChange: onRealisasiNominalChange,
+      submitStep5: submitStep5
+    };
+  })();
+
+  document.addEventListener('DOMContentLoaded', function () {
+    RequesterApp.init();
+  });
+</script>

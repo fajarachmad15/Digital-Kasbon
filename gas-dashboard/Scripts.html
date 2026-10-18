@@ -1,0 +1,396 @@
+<script>
+  /**
+   * ============================================================================
+   * MODULE: Scripts.html (PROJECT 1: GAS-DASHBOARD)
+   * DESCRIPTION: Client-side controller for Dashboard Monitoring & 7-Step Tracker
+   * ============================================================================
+   */
+  const DashboardApp = (function () {
+    let rawItems = [];
+    let storesList = [];
+    let portalUrls = {};
+
+    function esc(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return esc(iso);
+      return d.toLocaleString('id-ID', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    function getActionLink(item) {
+      const idParam = '?id=' + encodeURIComponent(item.no_pengajuan);
+      if (item.target_portal === 'portal-manager' && portalUrls.manager) {
+        return portalUrls.manager + idParam;
+      }
+      if (item.target_portal === 'portal-cashier' && portalUrls.cashier) {
+        return portalUrls.cashier + idParam;
+      }
+      if (item.target_portal === 'portal-requester' && portalUrls.requester) {
+        return portalUrls.requester + idParam;
+      }
+      return '';
+    }
+
+    function buildStepDots(item) {
+      const step = Number(item.current_step) || 1;
+      const isRejected = Boolean(item.is_rejected);
+      const isCompleted = Boolean(item.is_completed);
+      let html = '<div class="step-dots">';
+      for (let i = 1; i <= 7; i++) {
+        let cls = '';
+        if (isCompleted || i < step) {
+          cls = 'done';
+        } else if (i === step) {
+          cls = isRejected ? 'reject' : 'active';
+        }
+        html += '<span class="step-dot ' + cls + '" title="Step ' + i + '">' + i + '</span>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function updateKpis(filtered) {
+      let totalNom = 0;
+      let pendingAuth = 0;
+      let reqAction = 0;
+      let completed = 0;
+      let rejected = 0;
+
+      for (let i = 0; i < filtered.length; i++) {
+        const it = filtered[i];
+        totalNom += Number(it.nominal) || 0;
+        if (it.is_completed) {
+          completed++;
+        } else if (it.is_rejected) {
+          rejected++;
+        } else if (it.next_action_role === 'Manager' || it.next_action_role === 'Senior Cashier') {
+          pendingAuth++;
+        } else if (it.next_action_role === 'Requester') {
+          reqAction++;
+        }
+      }
+
+      document.getElementById('kpiTotalCount').textContent = filtered.length;
+      document.getElementById('kpiTotalNominal').textContent = KasbonClientUtils.formatRupiah(totalNom);
+      document.getElementById('kpiPendingAuth').textContent = pendingAuth;
+      document.getElementById('kpiRequesterAction').textContent = reqAction;
+      document.getElementById('kpiCompleted').textContent = completed;
+      document.getElementById('kpiRejected').textContent = 'Ditolak: ' + rejected;
+    }
+
+    function renderTable() {
+      const searchQ = (document.getElementById('filterSearch').value || '').trim().toLowerCase();
+      const tbody = document.getElementById('kasbonTableBody');
+
+      const filtered = rawItems.filter(function (item) {
+        if (!searchQ) return true;
+        const hay = [
+          item.no_pengajuan,
+          item.kode_store,
+          item.nama_store,
+          item.dibayarkan_kepada,
+          item.nip_req,
+          item.keperluan,
+          item.status_label
+        ].join(' ').toLowerCase();
+        return hay.indexOf(searchQ) !== -1;
+      });
+
+      updateKpis(filtered);
+      document.getElementById('tableCountInfo').textContent = 'Menampilkan ' + filtered.length + ' pengajuan';
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data kasbon yang sesuai filter.</td></tr>';
+        return;
+      }
+
+      let rowsHtml = '';
+      for (let i = 0; i < filtered.length; i++) {
+        const it = filtered[i];
+        let badgeCls = 'badge-wait';
+        if (it.is_completed) badgeCls = 'badge-done';
+        else if (it.is_rejected) badgeCls = 'badge-reject';
+
+        const actionUrl = getActionLink(it);
+        let actionBtn = '';
+        if (!it.is_completed && !it.is_rejected) {
+          if (actionUrl) {
+            actionBtn = '<a href="' + esc(actionUrl) + '" target="_blank" class="btn btn-primary" style="padding:0.35rem 0.65rem; font-size:0.78rem;">Proses (' + esc(it.next_action_role) + ') ↗</a>';
+          } else {
+            actionBtn = '<button type="button" class="btn btn-outline" style="padding:0.35rem 0.65rem; font-size:0.78rem;" onclick="DashboardApp.openConfigModal()">Set URL ' + esc(it.next_action_role) + '</button>';
+          }
+        }
+
+        rowsHtml += '<tr>'
+          + '<td><strong>' + esc(it.no_pengajuan) + '</strong></td>'
+          + '<td style="white-space:nowrap;">' + fmtDate(it.timestamp_req) + '</td>'
+          + '<td><span class="badge badge-info">' + esc(it.kode_store) + '</span><br><small style="color:var(--text-muted);">' + esc(it.nama_store) + '</small></td>'
+          + '<td><strong>' + esc(it.dibayarkan_kepada) + '</strong><br><small style="color:var(--text-muted);">NIP: ' + esc(it.nip_req) + ' | ' + esc(it.departemen) + '</small></td>'
+          + '<td style="white-space:nowrap; font-weight:700;">' + KasbonClientUtils.formatRupiah(it.nominal) + '</td>'
+          + '<td>' + esc(it.keperluan) + '<br><small style="color:var(--text-muted);">Janji: ' + esc(it.janji_penyelesaian) + '</small></td>'
+          + '<td>' + buildStepDots(it) + '</td>'
+          + '<td><span class="badge ' + badgeCls + '">' + esc(it.status_label) + '</span></td>'
+          + '<td style="white-space:nowrap; display:flex; gap:0.35rem; align-items:center;">'
+          + '<button type="button" class="btn btn-outline" style="padding:0.35rem 0.65rem; font-size:0.78rem;" onclick="DashboardApp.openTracker(\'' + esc(it.no_pengajuan) + '\')">🔍 Detail</button>'
+          + actionBtn
+          + '</td>'
+          + '</tr>';
+      }
+      tbody.innerHTML = rowsHtml;
+    }
+
+    function populateStores(stores) {
+      const sel = document.getElementById('filterStore');
+      const currentVal = sel.value;
+      let html = '<option value="ALL">Semua Store</option>';
+      for (let i = 0; i < stores.length; i++) {
+        const s = stores[i];
+        html += '<option value="' + esc(s.kode_store) + '">' + esc(s.kode_store) + ' - ' + esc(s.nama_store) + '</option>';
+      }
+      sel.innerHTML = html;
+      if (currentVal) sel.value = currentVal;
+    }
+
+    function applyFilters() {
+      loadData();
+    }
+
+    function loadData() {
+      const kodeStore = document.getElementById('filterStore').value;
+      const roleFilter = document.getElementById('filterRole').value;
+      const alertBox = document.getElementById('dashboardAlert');
+      alertBox.style.display = 'none';
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          rawItems = res.items || [];
+          portalUrls = res.portalUrls || {};
+          if (storesList.length === 0 && res.stores) {
+            storesList = res.stores;
+            populateStores(storesList);
+          }
+          const btnNew = document.getElementById('btnCreateNew');
+          if (portalUrls.pengajuan) {
+            btnNew.href = portalUrls.pengajuan;
+            btnNew.onclick = null;
+          } else {
+            btnNew.href = '#';
+            btnNew.onclick = function (e) {
+              e.preventDefault();
+              openConfigModal();
+            };
+          }
+          renderTable();
+
+          if (window.INITIAL_QUERY_ID) {
+            const initId = window.INITIAL_QUERY_ID;
+            window.INITIAL_QUERY_ID = '';
+            openTracker(initId);
+          }
+        })
+        .withFailureHandler(function (err) {
+          alertBox.textContent = 'Gagal memuat data: ' + (err.message || err);
+          alertBox.style.display = 'block';
+        })
+        .apiGetDashboardData({ kodeStore: kodeStore, roleFilter: roleFilter });
+    }
+
+    function openTracker(noPengajuan) {
+      const modal = document.getElementById('trackerModal');
+      const content = document.getElementById('modalContent');
+      document.getElementById('modalTitle').textContent = 'Tracker Progress Kasbon: ' + noPengajuan;
+      content.innerHTML = '<div style="padding:2rem; text-align:center;">⏳ Memuat rincian step-by-step...</div>';
+      modal.showModal();
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          const r = res.record;
+          const mgrName = r.manager_incharge_name || 'Manager';
+          const csrName = r.senior_cashier_name || 'Senior Cashier';
+          const reqName = r.dibayarkan_kepada || 'Requester';
+
+          // Build 7-step visual items matching exact corporate SOP
+          const steps = [
+            {
+              no: 1,
+              title: 'Pengajuan Kasbon Terkirim',
+              state: 'done',
+              desc: 'Diajukan oleh ' + reqName + ' (' + r.nip_req + ') pada ' + fmtDate(r.timestamp_req),
+              portal: ''
+            },
+            {
+              no: 2,
+              title: 'Approval Manager (' + mgrName + ')',
+              state: r.status_approval === 'Approved' ? 'done' : (r.status_approval === 'Reject' ? 'reject' : 'wait'),
+              desc: r.status_approval === 'Approved'
+                ? 'Disetujui oleh Bpk/Ibu ' + mgrName + ' (' + fmtDate(r.timestamp_app) + ')'
+                : (r.status_approval === 'Reject'
+                  ? 'Ditolak oleh Bpk/Ibu ' + mgrName + '. Alasan: ' + (r.reason_reject_app || '-')
+                  : 'Menunggu persetujuan Bpk/Ibu ' + mgrName),
+              portal: portalUrls.manager ? (portalUrls.manager + '?id=' + encodeURIComponent(r.no_pengajuan)) : ''
+            },
+            {
+              no: 3,
+              title: 'Verifikasi Cashier (' + csrName + ')',
+              state: r.status_verifikasi === 'Verifikasi Approved' ? 'done' : (r.status_verifikasi === 'Verifikasi Reject' ? 'reject' : (r.current_step === 3 ? 'wait' : 'pending')),
+              desc: r.status_verifikasi === 'Verifikasi Approved'
+                ? 'Terverifikasi lengkap oleh Bpk/Ibu ' + csrName + ' (' + fmtDate(r.timestamp_ver) + ')'
+                : (r.status_verifikasi === 'Verifikasi Reject'
+                  ? 'Ditolak oleh Bpk/Ibu ' + csrName + '. Alasan: ' + (r.reason_reject_ver || '-')
+                  : 'Menunggu verifikasi Bpk/Ibu ' + csrName),
+              portal: portalUrls.cashier ? (portalUrls.cashier + '?id=' + encodeURIComponent(r.no_pengajuan)) : ''
+            },
+            {
+              no: 4,
+              title: 'Konfirmasi Uang Kasbon Diterima (' + reqName + ')',
+              state: r.status_uang === 'Sudah diterima' ? 'done' : (r.current_step === 4 ? 'wait' : 'pending'),
+              desc: r.status_uang === 'Sudah diterima'
+                ? 'Uang kasbon fisik telah diterima oleh ' + reqName + ' (' + fmtDate(r.timestamp_rec) + ')'
+                : 'Menunggu konfirmasi penerimaan uang oleh ' + reqName,
+              portal: portalUrls.requester ? (portalUrls.requester + '?id=' + encodeURIComponent(r.no_pengajuan)) : ''
+            },
+            {
+              no: 5,
+              title: 'Laporan Realisasi Pemohon (' + reqName + ')',
+              state: r.status_realisasi === 'Terrealisasi' ? 'done' : (r.current_step === 5 ? 'wait' : 'pending'),
+              desc: r.status_realisasi === 'Terrealisasi'
+                ? 'Realisasi dikirim (' + fmtDate(r.timestamp_rea) + '). Belanja: ' + KasbonClientUtils.formatRupiah(r.nominal_pembelanjaan_rea)
+                : 'Menunggu input laporan realisasi & upload nota oleh ' + reqName,
+              portal: portalUrls.requester ? (portalUrls.requester + '?id=' + encodeURIComponent(r.no_pengajuan)) : ''
+            },
+            {
+              no: 6,
+              title: 'Verifikasi Realisasi Cashier (' + csrName + ')',
+              state: (r.status_verifikasi_rea === 'Ya, Sesuai' || r.status_verifikasi_rea === 'Tidak Sesuai') ? 'done' : (r.current_step === 6 ? 'wait' : 'pending'),
+              desc: (r.status_verifikasi_rea === 'Ya, Sesuai' || r.status_verifikasi_rea === 'Tidak Sesuai')
+                ? 'Diverifikasi oleh ' + csrName + ' (' + r.status_verifikasi_rea + ' - ' + fmtDate(r.timestamp_ver_rea) + ')'
+                : 'Menunggu verifikasi fisik uang & nota realisasi oleh ' + csrName,
+              portal: portalUrls.cashier ? (portalUrls.cashier + '?id=' + encodeURIComponent(r.no_pengajuan)) : ''
+            },
+            {
+              no: 7,
+              title: 'Final Cek Manager (' + mgrName + ')',
+              state: r.timestamp_fin_cek ? 'done' : (r.current_step === 7 ? 'wait' : 'pending'),
+              desc: r.timestamp_fin_cek
+                ? 'Final Cek selesai oleh ' + mgrName + ' (' + fmtDate(r.timestamp_fin_cek) + ') - Nota: ' + r.status_qty_value_nota + ', Item: ' + r.status_item
+                : 'Menunggu Final Cek laporan realisasi oleh ' + mgrName,
+              portal: portalUrls.manager ? (portalUrls.manager + '?id=' + encodeURIComponent(r.no_pengajuan)) : ''
+            }
+          ];
+
+          let stepsHtml = '';
+          for (let i = 0; i < steps.length; i++) {
+            const s = steps[i];
+            let iconBg = '#e2e8f0';
+            let iconColor = '#475569';
+            let iconTxt = s.no;
+            if (s.state === 'done') { iconBg = '#16a34a'; iconColor = '#fff'; iconTxt = '✓'; }
+            else if (s.state === 'reject') { iconBg = '#dc2626'; iconColor = '#fff'; iconTxt = '✕'; }
+            else if (s.state === 'wait') { iconBg = '#eab308'; iconColor = '#0f172a'; iconTxt = '⏳'; }
+
+            let btnLink = '';
+            if (s.state === 'wait' && s.portal) {
+              btnLink = '<a href="' + esc(s.portal) + '" target="_blank" class="btn btn-primary" style="padding:0.35rem 0.75rem; font-size:0.8rem;">Buka Form Step ' + s.no + ' ↗</a>';
+            }
+
+            stepsHtml += '<div class="timeline-item">'
+              + '<div class="timeline-icon" style="background:' + iconBg + '; color:' + iconColor + ';">' + iconTxt + '</div>'
+              + '<div style="flex:1;">'
+              + '<div style="font-weight:700; font-size:0.95rem;">Step ' + s.no + ': ' + esc(s.title) + '</div>'
+              + '<div style="font-size:0.85rem; color:var(--text-muted);">' + esc(s.desc) + '</div>'
+              + '</div>'
+              + '<div>' + btnLink + '</div>'
+              + '</div>';
+          }
+
+          const lampiranReqHtml = (r.bukti_lampiran_req && r.bukti_lampiran_req !== '-')
+            ? '<a href="' + esc(r.bukti_lampiran_req) + '" target="_blank">Lihat Lampiran Pengajuan ↗</a>'
+            : '-';
+          const lampiranReaHtml = (r.bukti_lampiran_rea && r.bukti_lampiran_rea !== '-')
+            ? '<a href="' + esc(r.bukti_lampiran_rea) + '" target="_blank">Lihat Nota Realisasi ↗</a>'
+            : '-';
+
+          content.innerHTML = ''
+            + '<div class="info-grid" style="background:#f8fafc; padding:1rem; border-radius:8px; margin-bottom:1.25rem;">'
+            + '<div class="info-label">Nomor Pengajuan</div><div class="info-val">' + esc(r.no_pengajuan) + '</div>'
+            + '<div class="info-label">Unit Bisnis Store</div><div class="info-val">' + esc(r.kode_store) + ' - ' + esc(r.nama_store) + '</div>'
+            + '<div class="info-label">Dibayarkan Kepada</div><div class="info-val">' + esc(r.dibayarkan_kepada) + ' / NIP: ' + esc(r.nip_req) + ' (' + esc(r.departemen) + ')</div>'
+            + '<div class="info-label">Nominal Kasbon</div><div class="info-val">' + KasbonClientUtils.formatRupiah(r.nominal) + ' (' + esc(r.terbilang_req) + ')</div>'
+            + '<div class="info-label">Keperluan</div><div class="info-val">' + esc(r.keperluan) + '</div>'
+            + '<div class="info-label">Janji Penyelesaian</div><div class="info-val">' + esc(r.janji_penyelesaian) + '</div>'
+            + '<div class="info-label">Bukti Pengajuan</div><div class="info-val">' + lampiranReqHtml + '</div>'
+            + '<div class="info-label">Bukti Realisasi</div><div class="info-val">' + lampiranReaHtml + '</div>'
+            + '</div>'
+            + '<h4 style="margin:0 0 0.5rem 0;">Alur Tahapan Verifikasi (Step 1 - Step 7)</h4>'
+            + stepsHtml;
+        })
+        .withFailureHandler(function (err) {
+          content.innerHTML = '<div class="alert alert-error">Gagal memuat detail: ' + esc(err.message || err) + '</div>';
+        })
+        .apiGetKasbonDetail(noPengajuan);
+    }
+
+    function openConfigModal() {
+      document.getElementById('cfgUrlDashboard').value = portalUrls.dashboard || '';
+      document.getElementById('cfgUrlPengajuan').value = portalUrls.pengajuan || '';
+      document.getElementById('cfgUrlManager').value = portalUrls.manager || '';
+      document.getElementById('cfgUrlCashier').value = portalUrls.cashier || '';
+      document.getElementById('cfgUrlRequester').value = portalUrls.requester || '';
+      document.getElementById('configModal').showModal();
+    }
+
+    function saveConfigUrls() {
+      const btn = document.getElementById('btnSaveConfig');
+      btn.disabled = true;
+      btn.textContent = 'Menyimpan...';
+
+      const payload = {
+        dashboard: document.getElementById('cfgUrlDashboard').value,
+        pengajuan: document.getElementById('cfgUrlPengajuan').value,
+        manager: document.getElementById('cfgUrlManager').value,
+        cashier: document.getElementById('cfgUrlCashier').value,
+        requester: document.getElementById('cfgUrlRequester').value
+      };
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          btn.textContent = 'Simpan Konfigurasi';
+          portalUrls = res.portalUrls || {};
+          document.getElementById('configModal').close();
+          loadData();
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = 'Simpan Konfigurasi';
+          alert('Gagal menyimpan URL: ' + (err.message || err));
+        })
+        .apiSavePortalUrls(payload);
+    }
+
+    return {
+      loadData: loadData,
+      applyFilters: applyFilters,
+      renderTable: renderTable,
+      openTracker: openTracker,
+      openConfigModal: openConfigModal,
+      saveConfigUrls: saveConfigUrls
+    };
+  })();
+
+  document.addEventListener('DOMContentLoaded', function () {
+    DashboardApp.loadData();
+  });
+</script>

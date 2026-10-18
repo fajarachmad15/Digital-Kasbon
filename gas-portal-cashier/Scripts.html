@@ -1,0 +1,306 @@
+<script>
+  /**
+   * ============================================================================
+   * MODULE: Scripts.html (PROJECT 4: GAS-PORTAL-CASHIER)
+   * DESCRIPTION: Client-side logic for Senior Cashier Verification (Step 3 & Step 6)
+   * ============================================================================
+   */
+  const CashierApp = (function () {
+    let currentRecord = null;
+    let verifiedCreds = null;
+    let portalUrls = {};
+
+    function esc(str) {
+      if (str === null || str === undefined) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? esc(iso) : d.toLocaleString('id-ID');
+    }
+
+    function showAlert(msg, isSuccess) {
+      const el = document.getElementById('portalAlert');
+      if (!msg) {
+        el.style.display = 'none';
+        return;
+      }
+      el.className = 'alert ' + (isSuccess ? 'alert-success' : 'alert-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function init() {
+      const loginForm = document.getElementById('csrLoginForm');
+      KasbonClientUtils.initFormValidation(loginForm);
+
+      loginForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!loginForm.checkValidity()) return;
+        verifyLogin();
+      });
+
+      loadTask(window.INITIAL_QUERY_ID || '');
+    }
+
+    function loadTask(idStr) {
+      showAlert('');
+      const cleanId = (idStr || '').trim().toUpperCase();
+      document.getElementById('searchIdInput').value = cleanId;
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          portalUrls = res.portalUrls || {};
+          if (portalUrls.dashboard) {
+            document.getElementById('navDashboardBtn').href = portalUrls.dashboard;
+          }
+
+          if (res.mode === 'QUEUE') {
+            renderQueue(res.queue || []);
+          } else {
+            renderDetail(res.record);
+          }
+        })
+        .withFailureHandler(function (err) {
+          showAlert(err.message || String(err));
+        })
+        .apiGetCashierTask(cleanId);
+    }
+
+    function renderQueue(items) {
+      document.getElementById('detailSection').style.display = 'none';
+      const qSec = document.getElementById('queueSection');
+      qSec.style.display = 'block';
+      const container = document.getElementById('queueListContainer');
+
+      if (!items || items.length === 0) {
+        container.innerHTML = '<div class="alert alert-info" style="margin-bottom:0;">🎉 Tidak ada antrean pengajuan yang menunggu verifikasi Senior Cashier saat ini.</div>';
+        return;
+      }
+
+      let html = '<div style="display:grid; gap:0.75rem;">';
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const stepBadge = it.overall_status === 'WAITING_CASHIER_VERIF'
+          ? '<span class="badge badge-wait">Step 3: Verifikasi Pencairan</span>'
+          : '<span class="badge badge-info">Step 6: Verifikasi Realisasi</span>';
+
+        html += '<div style="border:1px solid var(--border-color); border-radius:10px; padding:1rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">'
+          + '<div>'
+          + '<div><strong>' + esc(it.no_pengajuan) + '</strong> &bull; <span class="badge badge-info">' + esc(it.kode_store) + '</span> ' + stepBadge + '</div>'
+          + '<div style="font-size:0.9rem; margin-top:0.25rem;">Pemohon: <strong>' + esc(it.dibayarkan_kepada) + '</strong> (' + esc(it.nip_req) + ') &bull; Senilai: <strong>' + KasbonClientUtils.formatRupiah(it.nominal) + '</strong></div>'
+          + '<div style="font-size:0.825rem; color:var(--text-muted);">Senior Cashier: ' + esc(it.senior_cashier) + ' | Keperluan: ' + esc(it.keperluan) + '</div>'
+          + '</div>'
+          + '<button type="button" class="btn btn-primary" onclick="CashierApp.loadTask(\'' + esc(it.no_pengajuan) + '\')">Proses Sekarang →</button>'
+          + '</div>';
+      }
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function renderDetail(r) {
+      currentRecord = r;
+      verifiedCreds = null;
+
+      document.getElementById('queueSection').style.display = 'none';
+      document.getElementById('detailSection').style.display = 'block';
+      document.getElementById('step3ActionCard').style.display = 'none';
+      document.getElementById('step6ActionCard').style.display = 'none';
+      document.getElementById('notCashierTurnCard').style.display = 'none';
+
+      document.getElementById('detailStatusBadge').textContent = r.status_label;
+
+      const lampiranReq = (r.bukti_lampiran_req && r.bukti_lampiran_req !== '-')
+        ? '<a href="' + esc(r.bukti_lampiran_req) + '" target="_blank">Lihat Bukti Pengajuan ↗</a>'
+        : '-';
+      const lampiranRea = (r.bukti_lampiran_rea && r.bukti_lampiran_rea !== '-')
+        ? '<a href="' + esc(r.bukti_lampiran_rea) + '" target="_blank">Lihat Nota Realisasi ↗</a>'
+        : '-';
+
+      let extraReaHtml = '';
+      if (r.status_realisasi === 'Terrealisasi') {
+        extraReaHtml = ''
+          + '<div class="info-label">Total Uang Digunakan</div><div class="info-val">' + KasbonClientUtils.formatRupiah(r.nominal_pembelanjaan_rea) + '</div>'
+          + '<div class="info-label">Klaim Uang Dikembalikan</div><div class="info-val">' + KasbonClientUtils.formatRupiah(r.uang_dikembalikan_rea) + '</div>'
+          + '<div class="info-label">Klaim Uang Diterima</div><div class="info-val">' + KasbonClientUtils.formatRupiah(r.uang_diterima_rea) + '</div>'
+          + '<div class="info-label">Lampiran Nota Realisasi</div><div class="info-val">' + lampiranRea + '</div>';
+      }
+
+      document.getElementById('detailInfoGrid').innerHTML = ''
+        + '<div class="info-label">Nomor Pengajuan Kasbon</div><div class="info-val">' + esc(r.no_pengajuan) + '</div>'
+        + '<div class="info-label">Tgl &amp; Jam Pengajuan</div><div class="info-val">' + fmtDate(r.timestamp_req) + '</div>'
+        + '<div class="info-label">Unit Bisnis Store</div><div class="info-val">' + esc(r.kode_store) + ' - ' + esc(r.nama_store) + '</div>'
+        + '<div class="info-label">Dibayarkan Kepada</div><div class="info-val">' + esc(r.dibayarkan_kepada) + ' / ' + esc(r.nip_req) + '</div>'
+        + '<div class="info-label">Departemen</div><div class="info-val">' + esc(r.departemen) + '</div>'
+        + '<div class="info-label">Senilai</div><div class="info-val">' + KasbonClientUtils.formatRupiah(r.nominal) + '</div>'
+        + '<div class="info-label">Untuk Keperluan</div><div class="info-val">' + esc(r.keperluan) + '</div>'
+        + '<div class="info-label">Approval Pendukung</div><div class="info-val">' + lampiranReq + '</div>'
+        + '<div class="info-label">Janji Penyelesaian</div><div class="info-val">' + esc(r.janji_penyelesaian) + '</div>'
+        + '<div class="info-label">Senior Cashier</div><div class="info-val">' + esc(r.senior_cashier) + '</div>'
+        + extraReaHtml;
+
+      document.getElementById('detailTerbilangBox').textContent = r.terbilang_req;
+
+      // Initialize Step 6 numbers from requester's realization
+      const uKembaliDb = Number(r.uang_dikembalikan_rea) || 0;
+      const uTerimaDb = Number(r.uang_diterima_rea) || 0;
+      document.getElementById('uKembaliInput').value = uKembaliDb;
+      document.getElementById('uTerimaInput').value = uTerimaDb;
+      onNominalVerifInput();
+
+      const isCashierTurn = (r.overall_status === 'WAITING_CASHIER_VERIF' || r.overall_status === 'WAITING_CASHIER_REA_VERIF');
+      if (isCashierTurn) {
+        document.getElementById('loginCard').style.display = 'block';
+        document.getElementById('assignedCashierCaption').textContent =
+          'Otorisasi khusus untuk Senior Cashier ditugaskan: ' + (r.senior_cashier_name || r.senior_cashier) + ' (NIK: ' + (r.senior_cashier_nik || '-') + ')';
+      } else {
+        document.getElementById('loginCard').style.display = 'none';
+        document.getElementById('notCashierTurnCard').style.display = 'block';
+        document.getElementById('notCashierTurnMsg').innerHTML =
+          'ℹ️ Pengajuan ini saat ini berstatus: <strong>' + esc(r.status_label) + '</strong>.<br>Tidak ada tindakan yang diperlukan dari Senior Cashier pada tahap ini.';
+      }
+    }
+
+    function verifyLogin() {
+      showAlert('');
+      const nik = document.getElementById('csrNik').value;
+      const password = document.getElementById('csrPass').value;
+      const btn = document.getElementById('btnVerifyCsr');
+      btn.disabled = true;
+      btn.textContent = '⏳ Memverifikasi Otorisasi...';
+
+      google.script.run
+        .withSuccessHandler(function () {
+          btn.disabled = false;
+          btn.textContent = '🔓 Masuk & Verifikasi Pengajuan';
+          verifiedCreds = { nik: nik, password: password };
+          document.getElementById('loginCard').style.display = 'none';
+
+          if (currentRecord.overall_status === 'WAITING_CASHIER_VERIF') {
+            document.getElementById('step3ActionCard').style.display = 'block';
+          } else if (currentRecord.overall_status === 'WAITING_CASHIER_REA_VERIF') {
+            document.getElementById('step6ActionCard').style.display = 'block';
+          }
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = '🔓 Masuk & Verifikasi Pengajuan';
+          showAlert(err.message || String(err));
+        })
+        .apiVerifyCashier({
+          noPengajuan: currentRecord.no_pengajuan,
+          nik: nik,
+          password: password
+        });
+    }
+
+    function submitStep3(decision) {
+      showAlert('');
+      const reason = document.getElementById('rejectReasonVer').value.trim();
+      if (decision === 'Verifikasi Reject' && !reason) {
+        showAlert('Harap isi Alasan Reject sebelum menolak verifikasi.');
+        return;
+      }
+
+      const b1 = document.getElementById('btnApproveStep3');
+      const b2 = document.getElementById('btnRejectStep3');
+      b1.disabled = true;
+      b2.disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          b1.disabled = false;
+          b2.disabled = false;
+          showAlert('✅ Berhasil! Pengajuan ' + res.noPengajuan + ' telah diproses (' + res.decision + ').', true);
+          loadTask(res.noPengajuan);
+        })
+        .withFailureHandler(function (err) {
+          b1.disabled = false;
+          b2.disabled = false;
+          showAlert(err.message || String(err));
+        })
+        .apiSubmitCashierVerif({
+          noPengajuan: currentRecord.no_pengajuan,
+          nik: verifiedCreds.nik,
+          password: verifiedCreds.password,
+          decision: decision,
+          reason: reason
+        });
+    }
+
+    function onRealisasiMatchChange() {
+      const val = document.getElementById('statusPilihanRea').value;
+      const isMismatch = (val === 'Tidak Sesuai');
+      document.getElementById('reasonReaGroup').style.display = isMismatch ? 'block' : 'none';
+      document.getElementById('uKembaliInput').disabled = !isMismatch;
+      document.getElementById('uTerimaInput').disabled = !isMismatch;
+
+      if (!isMismatch && currentRecord) {
+        document.getElementById('uKembaliInput').value = Number(currentRecord.uang_dikembalikan_rea) || 0;
+        document.getElementById('uTerimaInput').value = Number(currentRecord.uang_diterima_rea) || 0;
+        onNominalVerifInput();
+      }
+    }
+
+    function onNominalVerifInput() {
+      const k = document.getElementById('uKembaliInput').value;
+      const t = document.getElementById('uTerimaInput').value;
+      document.getElementById('terbilangKembaliVer').textContent = KasbonClientUtils.formatTerbilang(k);
+      document.getElementById('terbilangTerimaVer').textContent = KasbonClientUtils.formatTerbilang(t);
+    }
+
+    function submitStep6() {
+      showAlert('');
+      const statusPilihan = document.getElementById('statusPilihanRea').value;
+      const reasonVerif = document.getElementById('reasonVerifRea').value.trim();
+      const uKembali = document.getElementById('uKembaliInput').value;
+      const uTerima = document.getElementById('uTerimaInput').value;
+
+      if (statusPilihan === 'Tidak Sesuai' && !reasonVerif) {
+        showAlert('Harap isi Reason / Alasan Ketidaksesuaian.');
+        return;
+      }
+
+      const btn = document.getElementById('btnSubmitStep6');
+      btn.disabled = true;
+      btn.textContent = '⏳ Menyimpan Verifikasi Realisasi...';
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          btn.textContent = '✓ SUBMIT VERIFIKASI REALISASI';
+          showAlert('✅ Berhasil! Verifikasi Realisasi untuk ' + res.noPengajuan + ' telah disimpan. Menunggu Final Cek Manager.', true);
+          loadTask(res.noPengajuan);
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = '✓ SUBMIT VERIFIKASI REALISASI';
+          showAlert(err.message || String(err));
+        })
+        .apiSubmitCashierRealizationVerif({
+          noPengajuan: currentRecord.no_pengajuan,
+          nik: verifiedCreds.nik,
+          password: verifiedCreds.password,
+          statusPilihan: statusPilihan,
+          reasonVerif: reasonVerif,
+          uangDikembalikan: uKembali,
+          uangDiterima: uTerima
+        });
+    }
+
+    return {
+      init: init,
+      loadTask: loadTask,
+      submitStep3: submitStep3,
+      onRealisasiMatchChange: onRealisasiMatchChange,
+      onNominalVerifInput: onNominalVerifInput,
+      submitStep6: submitStep6
+    };
+  })();
+
+  document.addEventListener('DOMContentLoaded', function () {
+    CashierApp.init();
+  });
+</script>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Portal Senior Cashier | E-Kasbon</title>
+  <?!= include('SharedStyles'); ?>
+</head>
+<body>
+  <header class="corp-navbar">
+    <div class="corp-brand">
+      <span class="corp-badge-pill">CASHIER</span>
+      <span>Portal Verifikasi Senior Cashier (Step 3 Dana &amp; Step 6 Realisasi)</span>
+    </div>
+    <div style="display:flex; gap:0.5rem;">
+      <button type="button" class="btn btn-outline" style="padding:0.4rem 0.75rem; font-size:0.8rem;" onclick="CashierApp.loadTask('')">
+        📋 Daftar Antrean Cashier
+      </button>
+      <a id="navDashboardBtn" href="#" target="_blank" class="btn btn-outline" style="padding:0.4rem 0.85rem; font-size:0.8rem;">
+        📊 Buka Dashboard
+      </a>
+    </div>
+  </header>
+
+  <main class="corp-container">
+    <div id="portalAlert" class="alert alert-error" style="display:none;"></div>
+
+    <!-- PENCARIAN MANUAL NOMOR PENGAJUAN -->
+    <section class="corp-card" style="padding:1rem 1.5rem;">
+      <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+        <strong style="font-size:0.9rem;">Nomor Pengajuan:</strong>
+        <input type="text" id="searchIdInput" class="form-control" style="max-width:260px;" placeholder="Contoh: KBA380-1225-001" value="<?= queryId ?>">
+        <button type="button" class="btn btn-primary" onclick="CashierApp.loadTask(document.getElementById('searchIdInput').value)">
+          🔍 Buka Pengajuan
+        </button>
+      </div>
+    </section>
+
+    <!-- VIEW 1: ANTREAN TUGAS SENIOR CASHIER -->
+    <section id="queueSection" class="corp-card" style="display:none;">
+      <div class="corp-card-header">
+        <h2 class="corp-card-title">⏳ Antrean Tugas Senior Cashier (Step 3 &amp; Step 6)</h2>
+      </div>
+      <div id="queueListContainer"></div>
+    </section>
+
+    <!-- VIEW 2: DETAIL PENGAJUAN & FORM VERIFIKASI CASHIER -->
+    <section id="detailSection" style="display:none;">
+      <div class="corp-card">
+        <div class="corp-card-header">
+          <h2 class="corp-card-title">Rincian Pengajuan Kasbon</h2>
+          <span id="detailStatusBadge" class="badge badge-wait"></span>
+        </div>
+        <div class="info-grid" id="detailInfoGrid"></div>
+        <div id="detailTerbilangBox" class="terbilang-box" style="margin-top:0.85rem;"></div>
+      </div>
+
+      <!-- Card Login Otorisasi Cashier -->
+      <div id="loginCard" class="corp-card">
+        <div class="corp-card-header">
+          <h3 class="corp-card-title">🔐 Verifikasi Otorisasi Senior Cashier</h3>
+        </div>
+        <p id="assignedCashierCaption" style="font-size:0.9rem; color:var(--text-muted); margin-top:0;"></p>
+        <form id="csrLoginForm" novalidate>
+          <div class="grid-2">
+            <div class="field-group">
+              <label class="field-label" for="csrNik">NIK Senior Cashier (6 Digit) <span class="req-star">*</span></label>
+              <input type="text" id="csrNik" class="form-control" maxlength="6" pattern="^\d{6}$" inputmode="numeric" placeholder="131356" required aria-errormessage="err-csr-nik">
+              <div id="err-csr-nik" class="error-msg"><span aria-hidden="true">❌</span> Masukkan 6 digit NIK Senior Cashier.</div>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="csrPass">Password <span class="req-star">*</span></label>
+              <input type="password" id="csrPass" class="form-control" required aria-errormessage="err-csr-pass">
+              <div id="err-csr-pass" class="error-msg"><span aria-hidden="true">❌</span> Password wajib diisi.</div>
+            </div>
+          </div>
+          <button type="submit" id="btnVerifyCsr" class="btn btn-primary btn-block">
+            🔓 Masuk &amp; Verifikasi Pengajuan
+          </button>
+        </form>
+      </div>
+
+      <!-- ACTION CARD A: STEP 3 VERIFIKASI PENCAIRAN KASBON -->
+      <div id="step3ActionCard" class="corp-card" style="display:none;">
+        <div class="corp-card-header">
+          <h3 class="corp-card-title">💵 Keputusan Verifikasi Pencairan Kasbon (Step 3)</h3>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="rejectReasonVer">Alasan Reject (Wajib diisi jika menolak verifikasi)</label>
+          <textarea id="rejectReasonVer" class="form-control" rows="2" placeholder="Contoh: Saldo fisik petty cash tidak mencukupi / dokumen belum lengkap..."></textarea>
+        </div>
+        <div class="grid-2">
+          <button type="button" id="btnApproveStep3" class="btn btn-success btn-block" onclick="CashierApp.submitStep3('Verifikasi Approved')">
+            ✓ VERIFIKASI APPROVE
+          </button>
+          <button type="button" id="btnRejectStep3" class="btn btn-danger btn-block" onclick="CashierApp.submitStep3('Verifikasi Reject')">
+            ✕ VERIFIKASI REJECT
+          </button>
+        </div>
+      </div>
+
+      <!-- ACTION CARD B: STEP 6 VERIFIKASI REALISASI KASBON -->
+      <div id="step6ActionCard" class="corp-card" style="display:none;">
+        <div class="corp-card-header">
+          <h3 class="corp-card-title">🧾 Verifikasi Laporan Realisasi Kasbon (Step 6)</h3>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="statusPilihanRea">Apakah status realisasi sesuai? <span class="req-star">*</span></label>
+          <select id="statusPilihanRea" class="form-control" onchange="CashierApp.onRealisasiMatchChange()">
+            <option value="Ya, Sesuai">Ya, Sesuai</option>
+            <option value="Tidak Sesuai">Tidak Sesuai</option>
+          </select>
+        </div>
+
+        <div class="field-group" id="reasonReaGroup" style="display:none;">
+          <label class="field-label" for="reasonVerifRea">Reason / Alasan Ketidaksesuaian (Wajib diisi) <span class="req-star">*</span></label>
+          <textarea id="reasonVerifRea" class="form-control" rows="2" placeholder="Contoh: Belum dipotong PPh / selisih pembulatan nota..."></textarea>
+        </div>
+
+        <div class="grid-2">
+          <div class="field-group">
+            <label class="field-label" for="uKembaliInput">Uang Dikembalikan ke Perusahaan (Rp)</label>
+            <input type="number" id="uKembaliInput" class="form-control" min="0" step="1" disabled oninput="CashierApp.onNominalVerifInput()">
+            <div id="terbilangKembaliVer" class="terbilang-box">Nol Rupiah</div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="uTerimaInput">Uang Diterima Pemohon / Reimburse (Rp)</label>
+            <input type="number" id="uTerimaInput" class="form-control" min="0" step="1" disabled oninput="CashierApp.onNominalVerifInput()">
+            <div id="terbilangTerimaVer" class="terbilang-box">Nol Rupiah</div>
+          </div>
+        </div>
+
+        <button type="button" id="btnSubmitStep6" class="btn btn-primary btn-block" onclick="CashierApp.submitStep6()">
+          ✓ SUBMIT VERIFIKASI REALISASI
+        </button>
+      </div>
+
+      <!-- INFO CARD: JIKA BUKAN GILIRAN CASHIER -->
+      <div id="notCashierTurnCard" class="corp-card" style="display:none;">
+        <div class="alert alert-info" id="notCashierTurnMsg" style="margin-bottom:0;"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    window.INITIAL_QUERY_ID = "<?= queryId ?>";
+  </script>
+  <?!= include('SharedUtils'); ?>
+  <?!= include('Scripts'); ?>
+</body>
+</html>

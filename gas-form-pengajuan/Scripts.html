@@ -1,0 +1,192 @@
+<script>
+  /**
+   * ============================================================================
+   * MODULE: Scripts.html (PROJECT 2: GAS-FORM-PENGAJUAN)
+   * DESCRIPTION: Client-side controller for Form Pengajuan Kasbon Baru
+   * ============================================================================
+   */
+  const PengajuanApp = (function () {
+    let allOfficers = [];
+    let portalUrls = {};
+
+    function esc(str) {
+      if (str === null || str === undefined) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function init() {
+      const form = document.getElementById('kasbonRequestForm');
+      KasbonClientUtils.initFormValidation(form);
+
+      // Set minimum date to today
+      const todayStr = new Date().toISOString().split('T')[0];
+      const janjiEl = document.getElementById('janjiPenyelesaian');
+      janjiEl.min = todayStr;
+      janjiEl.value = todayStr;
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!form.checkValidity()) {
+          const firstInvalid = form.querySelector(':invalid');
+          if (firstInvalid) firstInvalid.focus();
+          return;
+        }
+        submitForm();
+      });
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          allOfficers = res.officers || [];
+          portalUrls = res.portalUrls || {};
+
+          if (portalUrls.dashboard) {
+            document.getElementById('navDashboardBtn').href = portalUrls.dashboard;
+          }
+
+          const storeSel = document.getElementById('kodeStore');
+          let html = '<option value="">-- Pilih Kode Store --</option>';
+          const stores = res.stores || [];
+          for (let i = 0; i < stores.length; i++) {
+            const s = stores[i];
+            html += '<option value="' + esc(s.kode_store) + '">' + esc(s.kode_store) + ' - ' + esc(s.nama_store) + '</option>';
+          }
+          storeSel.innerHTML = html;
+        })
+        .withFailureHandler(function (err) {
+          showAlert('Gagal memuat data master store: ' + (err.message || err));
+        })
+        .apiGetFormInitData();
+    }
+
+    function onStoreChange() {
+      const kodeStore = document.getElementById('kodeStore').value;
+      const mgrSel = document.getElementById('managerIncharge');
+      const csrSel = document.getElementById('seniorCashier');
+
+      if (!kodeStore) {
+        mgrSel.innerHTML = '<option value="">-- Pilih Kode Store Dahulu --</option>';
+        csrSel.innerHTML = '<option value="">-- Pilih Kode Store Dahulu --</option>';
+        return;
+      }
+
+      let mgrHtml = '<option value="">-- Pilih Manager Incharge --</option>';
+      let csrHtml = '<option value="">-- Pilih Senior Cashier --</option>';
+
+      for (let i = 0; i < allOfficers.length; i++) {
+        const u = allOfficers[i];
+        if (String(u.kode_store).toUpperCase() === kodeStore.toUpperCase()) {
+          const label = u.nik + ' - ' + u.nama_lengkap + ' (' + u.email + ')';
+          if (u.role === 'Manager') {
+            mgrHtml += '<option value="' + esc(label) + '">' + esc(label) + '</option>';
+          } else if (u.role === 'Senior Cashier') {
+            csrHtml += '<option value="' + esc(label) + '">' + esc(label) + '</option>';
+          }
+        }
+      }
+      mgrSel.innerHTML = mgrHtml;
+      csrSel.innerHTML = csrHtml;
+    }
+
+    function onNominalInput() {
+      const val = document.getElementById('nominal').value;
+      document.getElementById('terbilangDisplay').textContent = KasbonClientUtils.formatTerbilang(val);
+    }
+
+    function showAlert(msg) {
+      const el = document.getElementById('formAlert');
+      el.textContent = msg;
+      el.style.display = msg ? 'block' : 'none';
+    }
+
+    async function submitForm() {
+      showAlert('');
+      const btn = document.getElementById('btnSubmit');
+      btn.disabled = true;
+      btn.textContent = '⏳ Memproses & Mengunggah ke Supabase...';
+
+      try {
+        const fileInput = document.getElementById('fileLampiran');
+        const filePayload = await KasbonClientUtils.prepareFilePayload(fileInput, 1600);
+
+        const payload = {
+          kodeStore: document.getElementById('kodeStore').value,
+          emailRequest: document.getElementById('emailRequest').value,
+          namaPemohon: document.getElementById('namaPemohon').value,
+          nipPemohon: document.getElementById('nipPemohon').value,
+          departemen: document.getElementById('departemen').value,
+          janjiPenyelesaian: document.getElementById('janjiPenyelesaian').value,
+          nominal: document.getElementById('nominal').value,
+          keperluan: document.getElementById('keperluan').value,
+          managerIncharge: document.getElementById('managerIncharge').value,
+          seniorCashier: document.getElementById('seniorCashier').value,
+          filePayload: filePayload
+        };
+
+        google.script.run
+          .withSuccessHandler(function (res) {
+            btn.disabled = false;
+            btn.textContent = '🚀 Kirim Pengajuan Kasbon';
+            renderSummary(res.summary, res.portalUrls);
+          })
+          .withFailureHandler(function (err) {
+            btn.disabled = false;
+            btn.textContent = '🚀 Kirim Pengajuan Kasbon';
+            showAlert('Gagal menyimpan pengajuan: ' + (err.message || err));
+          })
+          .apiSubmitPengajuan(payload);
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '🚀 Kirim Pengajuan Kasbon';
+        showAlert(e.message || String(e));
+      }
+    }
+
+    function renderSummary(d, urls) {
+      document.getElementById('formSection').style.display = 'none';
+      document.getElementById('summarySection').style.display = 'block';
+
+      const lampiranHtml = (d.link_lampiran && d.link_lampiran !== '-')
+        ? '<a href="' + esc(d.link_lampiran) + '" target="_blank">Lihat Lampiran ↗</a>'
+        : '-';
+
+      document.getElementById('summaryGrid').innerHTML = ''
+        + '<div class="info-label">Nomor Pengajuan Kasbon</div><div class="info-val">' + esc(d.no_pengajuan) + '</div>'
+        + '<div class="info-label">Tanggal &amp; Jam</div><div class="info-val">' + esc(d.tgl_pengajuan) + ' WIB</div>'
+        + '<div class="info-label">Unit Bisnis Store</div><div class="info-val">' + esc(d.kode_store) + '</div>'
+        + '<div class="info-label">Dibayarkan Kepada</div><div class="info-val">' + esc(d.nama) + ' / ' + esc(d.nip) + '</div>'
+        + '<div class="info-label">Departemen</div><div class="info-val">' + esc(d.departemen) + '</div>'
+        + '<div class="info-label">Senilai</div><div class="info-val">' + KasbonClientUtils.formatRupiah(d.nominal) + ' (' + esc(d.terbilang) + ')</div>'
+        + '<div class="info-label">Untuk Keperluan</div><div class="info-val">' + esc(d.keperluan) + '</div>'
+        + '<div class="info-label">Janji Penyelesaian</div><div class="info-val">' + esc(d.janji) + '</div>'
+        + '<div class="info-label">Bukti Lampiran</div><div class="info-val">' + lampiranHtml + '</div>'
+        + '<div class="info-label">Manager Incharge</div><div class="info-val">' + esc(d.manager_incharge) + '</div>'
+        + '<div class="info-label">Senior Cashier</div><div class="info-val">' + esc(d.senior_cashier) + '</div>';
+
+      const dashBtn = document.getElementById('btnGoDashboard');
+      if (urls && urls.dashboard) {
+        dashBtn.href = urls.dashboard + '?id=' + encodeURIComponent(d.no_pengajuan);
+      }
+    }
+
+    function resetForm() {
+      const form = document.getElementById('kasbonRequestForm');
+      form.reset();
+      const todayStr = new Date().toISOString().split('T')[0];
+      document.getElementById('janjiPenyelesaian').value = todayStr;
+      document.getElementById('terbilangDisplay').textContent = 'Nol Rupiah';
+      document.getElementById('summarySection').style.display = 'none';
+      document.getElementById('formSection').style.display = 'block';
+    }
+
+    return {
+      init: init,
+      onStoreChange: onStoreChange,
+      onNominalInput: onNominalInput,
+      resetForm: resetForm
+    };
+  })();
+
+  document.addEventListener('DOMContentLoaded', function () {
+    PengajuanApp.init();
+  });
+</script>

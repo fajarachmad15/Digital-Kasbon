@@ -82,36 +82,37 @@ def terbilang(n):
     elif n < 1000000000: res = terbilang(n // 1000000) + " Juta " + terbilang(n % 1000000)
     return res.strip()
 
-# --- DATABASE HEADER HELPERS (PENTING UNTUK HEADER DINAMIS) ---
-class DataContext:
-    def __init__(self, sheet, cell, headers, row_data):
-        self.sheet = sheet
-        self.cell = cell
-        self.headers = headers
-        self.row_data = row_data
-    def get_val(self, col_name):
-        try:
-            idx = self.headers.index(col_name)
-            if idx != -1 and idx < len(self.row_data): return self.row_data[idx]
-        except: pass
-        return ""
-    def update(self, col_name, value):
-        try:
-            col_idx = self.headers.index(col_name) + 1
-            self.sheet.update_cell(self.cell.row, col_idx, value)
-        except: pass
+def format_terbilang(n):
+    try:
+        val = int(n)
+    except (ValueError, TypeError):
+        val = 0
+    if val <= 0:
+        return "Nol Rupiah"
+    return terbilang(val).title() + " Rupiah"
+
+def batch_update_row(sheet, row_num, headers, updates_dict):
+    batch_payload = []
+    for col_name, val in updates_dict.items():
+        if col_name in headers:
+            col_idx = headers.index(col_name) + 1
+            cell_label = gspread.utils.rowcol_to_a1(row_num, col_idx)
+            batch_payload.append({"range": cell_label, "values": [[val]]})
+    if batch_payload:
+        sheet.batch_update(batch_payload)
 # 1. --------End_Part_1_Config_Helper-----------
 
 # 2. --------Start_Part_2_Session_Auth----------
 # --- LOGIKA LOGIN GOOGLE (WAJIB) ---
-if not st.experimental_user.is_logged_in:
+current_user = getattr(st, "user", st.experimental_user)
+if not current_user.is_logged_in:
     st.markdown("## 🌐 Kasbon Digital Petty Cash")
     st.info("Silakan login menggunakan akun Google Anda untuk melanjutkan.")
     if st.button("Sign in with Google", type="primary", use_container_width=True):
         st.login()
     st.stop()
 
-pic_email = st.experimental_user.email
+pic_email = current_user.email
 
 # --- PERMINTAAN: TOMBOL LOGOUT SERAGAM SISI KIRI ATAS ---
 c_lo_1, c_lo_2 = st.columns([1, 4])
@@ -124,6 +125,7 @@ if 'submitted' not in st.session_state: st.session_state.submitted = False
 if 'data_ringkasan' not in st.session_state: st.session_state.data_ringkasan = {}
 if 'show_errors' not in st.session_state: st.session_state.show_errors = False
 if 'mgr_logged_in' not in st.session_state: st.session_state.mgr_logged_in = False
+if 'csr_logged_in' not in st.session_state: st.session_state.csr_logged_in = False
 if 'cashier_real_logged_in' not in st.session_state: st.session_state.cashier_real_logged_in = False
 if 'mgr_final_logged_in' not in st.session_state: st.session_state.mgr_final_logged_in = False
 if 'user_role' not in st.session_state: st.session_state.user_role = ""
@@ -169,7 +171,7 @@ if query_id:
         r_no = get_val("No_Pengajuan")
         r_req_email = get_val("Email_Request")
         r_nama = get_val("Dibayarkan_Kepada")
-        r_nip = str(get_val("NIP_Req"))
+        r_nip = str(get_val("NIP_Req")).zfill(6)
         r_dept = get_val("Departemen")
         
         try: r_nominal_awal = int(get_val("Nominal"))
@@ -185,10 +187,10 @@ if query_id:
         
         # Parsing NIK/Email Petugas
         try:
-            target_cashier_nik = assigned_cashier_str.split(" - ")[0].strip()
+            target_cashier_nik = assigned_cashier_str.split(" - ")[0].strip().zfill(6)
             target_cashier_email = assigned_cashier_str.split("(")[1].split(")")[0].strip()
             
-            target_manager_nik = assigned_manager_str.split(" - ")[0].strip()
+            target_manager_nik = assigned_manager_str.split(" - ")[0].strip().zfill(6)
             target_manager_email = assigned_manager_str.split("(")[1].split(")")[0].strip()
         except:
             target_cashier_nik = ""; target_cashier_email = ""
@@ -220,10 +222,6 @@ if query_id:
                 st.info("ℹ️ Pengajuan berhasil terkirim. Saat ini sedang menunggu Approval Manager.")
                 st.warning(f"🔒 Halaman ini dikhususkan untuk Manager: {target_manager_email}")
                 st.stop()
-            
-            if pic_email == target_manager_email and status_mgr not in ["", "Pending"]:
-                 st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda untuk pengajuan ini. Status saat ini: {status_mgr}")
-                 st.stop()
 
             # LOGIN MGR
             if not st.session_state.mgr_logged_in:
@@ -235,7 +233,7 @@ if query_id:
                 v_pass = st.text_input("Password", type="password")
                 
                 if st.button("Masuk & Verifikasi", type="primary", use_container_width=True):
-                    if v_nik != target_manager_nik:
+                    if v_nik.zfill(6) != target_manager_nik:
                         st.error("⛔ Anda tidak berwenang memproses pengajuan ini (NIK tidak sesuai penugasan).")
                         st.stop()
                         
@@ -354,12 +352,8 @@ if query_id:
                     st.success("✅ Terima kasih, tugas Approval Anda sudah selesai.")
                 st.stop()
 
-            if pic_email == target_cashier_email and status_cashier not in ["", "Pending"]:
-                st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda untuk pengajuan ini. Status saat ini: {status_cashier}")
-                st.stop()
-
             # LOGIN CSR
-            if not st.session_state.mgr_logged_in:
+            if not st.session_state.csr_logged_in:
                 st.subheader("🔐 Verifikasi Cashier")
                 csr_clean_name = assigned_cashier_str.split(" - ")[1] if " - " in assigned_cashier_str else assigned_cashier_str
                 st.caption(f"Verifikasi untuk: {csr_clean_name}")
@@ -368,7 +362,7 @@ if query_id:
                 v_pass = st.text_input("Password", type="password")
                 
                 if st.button("Masuk & Verifikasi", type="primary", use_container_width=True):
-                    if v_nik != target_cashier_nik:
+                    if v_nik.zfill(6) != target_cashier_nik:
                         st.error("⛔ Anda tidak berwenang memproses pengajuan ini (NIK tidak sesuai penugasan).")
                         st.stop()
 
@@ -376,7 +370,7 @@ if query_id:
                         records = get_user_database()
                         user = next((r for r in records if str(r['NIK']).zfill(6) == v_nik and str(r['Password']) == v_pass), None)
                         if user: 
-                            st.session_state.mgr_logged_in = True
+                            st.session_state.csr_logged_in = True
                             st.session_state.user_role = user['Role']
                             st.session_state.user_nik = str(user['NIK']).zfill(6)
                             st.session_state.user_store_code = str(user['Kode_Store'])
@@ -648,17 +642,19 @@ if query_id:
                         
                         tgl_real = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
                         
-                        sheet.update_cell(cell.row, get_col_idx("Timestamp_Rea"), tgl_real)
-                        sheet.update_cell(cell.row, get_col_idx("NIP_Rea"), r_nip)
-                        sheet.update_cell(cell.row, get_col_idx("Nominal_Pembelanjaan_Rea"), uang_digunakan)
-                        sheet.update_cell(cell.row, get_col_idx("Terbilang_Rea1"), terbilang_guna)
-                        sheet.update_cell(cell.row, get_col_idx("Uang_Dikembalikan_Rea"), val_kembali)
-                        sheet.update_cell(cell.row, get_col_idx("Terbilang_Rea2"), txt_kembali)
-                        sheet.update_cell(cell.row, get_col_idx("Uang_Diterima_Rea"), val_terima)
-                        sheet.update_cell(cell.row, get_col_idx("Terbilang_Rea3"), txt_terima)
-                        sheet.update_cell(cell.row, get_col_idx("Bukti_Lampiran_Rea"), link_bukti)
-                        sheet.update_cell(cell.row, get_col_idx("Status_Realisasi"), "Terrealisasi")
-                        sheet.update_cell(cell.row, get_col_idx("Status_Email_Rea"), "Tekirim ke Mgr")
+                        batch_update_row(sheet, cell.row, headers, {
+                            "Timestamp_Rea": tgl_real,
+                            "NIP_Rea": r_nip,
+                            "Nominal_Pembelanjaan_Rea": uang_digunakan,
+                            "Terbilang_Rea1": terbilang_guna or "Nol Rupiah",
+                            "Uang_Dikembalikan_Rea": val_kembali,
+                            "Terbilang_Rea2": txt_kembali,
+                            "Uang_Diterima_Rea": val_terima,
+                            "Terbilang_Rea3": txt_terima,
+                            "Bukti_Lampiran_Rea": link_bukti,
+                            "Status_Realisasi": "Terrealisasi",
+                            "Status_Email_Rea": "Tekirim ke Mgr"
+                        })
 
                         st.success("✅ Berhasil! Tugas Anda untuk ID Kasbon ini telah selesai.")
                         st.balloons()
@@ -682,10 +678,6 @@ if query_id:
                         st.success("✅ Terima kasih, Laporan Realisasi Anda berhasil dikirim.")
                 st.stop()
 
-            if pic_email == target_cashier_email and status_verif_real not in ["", "Pending"]:
-                 st.info(f"ℹ️ Anda telah menyelesaikan bagian Anda untuk pengajuan ini. Status saat ini: {status_verif_real}")
-                 st.stop()
-
             # LOGIN CASHIER
             if not st.session_state.cashier_real_logged_in:
                 st.subheader("🔐 Login Cashier")
@@ -695,7 +687,7 @@ if query_id:
                 v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
                 v_pass = st.text_input("Password", type="password")
                 if st.button("Masuk"):
-                    if v_nik != target_cashier_nik:
+                    if v_nik.zfill(6) != target_cashier_nik:
                         st.error("⛔ Anda tidak berwenang memproses pengajuan ini (NIK tidak sesuai penugasan).")
                         st.stop()
 
@@ -748,11 +740,11 @@ if query_id:
             c_al, c_am = st.columns(2)
             with c_al:
                 u_kembali_input = st.number_input("Uang Dikembalikan", value=u_kembali_db, disabled=is_disabled, step=1)
-                st.markdown(f'<div class="terbilang-text">{terbilang(u_kembali_input).title() + " Rupiah"}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="terbilang-text">{format_terbilang(u_kembali_input)}</div>', unsafe_allow_html=True)
                 
             with c_am:
                 u_terima_input = st.number_input("Uang Diterima", value=u_terima_db, disabled=is_disabled, step=1)
-                st.markdown(f'<div class="terbilang-text">{terbilang(u_terima_input).title() + " Rupiah"}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="terbilang-text">{format_terbilang(u_terima_input)}</div>', unsafe_allow_html=True)
             
             if st.button("Submit Verifikasi", type="primary"):
                 if status_pilihan == "Tidak Sesuai" and not reason_verif:
@@ -762,19 +754,21 @@ if query_id:
                 final_u_kembali = u_kembali_input
                 final_u_terima = u_terima_input
                 
-                txt_kembali_final = terbilang(final_u_kembali).title() + " Rupiah"
-                txt_terima_final = terbilang(final_u_terima).title() + " Rupiah"
+                txt_kembali_final = format_terbilang(final_u_kembali)
+                txt_terima_final = format_terbilang(final_u_terima)
                 
                 tgl_verif = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
                 
-                sheet.update_cell(cell.row, get_col_idx("Timestamp_Ver_Rea"), tgl_verif)
-                sheet.update_cell(cell.row, get_col_idx("NIP_Ver_Rea"), st.session_state.user_nik)
-                sheet.update_cell(cell.row, get_col_idx("Uang_Dikembalikan_Ver_Rea"), final_u_kembali)
-                sheet.update_cell(cell.row, get_col_idx("Terbilang_Ver_Rea1"), txt_kembali_final)
-                sheet.update_cell(cell.row, get_col_idx("Uang_Diterima_Ver_Rea"), final_u_terima)
-                sheet.update_cell(cell.row, get_col_idx("Terbilang_Ver_Rea2"), txt_terima_final)
-                sheet.update_cell(cell.row, get_col_idx("Status_Verifikasi_Rea"), status_pilihan)
-                sheet.update_cell(cell.row, get_col_idx("Reason"), reason_verif)
+                batch_update_row(sheet, cell.row, headers, {
+                    "Timestamp_Ver_Rea": tgl_verif,
+                    "NIP_Ver_Rea": st.session_state.user_nik,
+                    "Uang_Dikembalikan_Ver_Rea": final_u_kembali,
+                    "Terbilang_Ver_Rea1": txt_kembali_final,
+                    "Uang_Diterima_Ver_Rea": final_u_terima,
+                    "Terbilang_Ver_Rea2": txt_terima_final,
+                    "Status_Verifikasi_Rea": status_pilihan,
+                    "Reason": reason_verif
+                })
 
                 try:
                     mgr_email = target_manager_email if target_manager_email else SENDER_EMAIL
@@ -833,7 +827,7 @@ if query_id:
                 v_nik = st.text_input("NIK (6 Digit)", max_chars=6)
                 v_pass = st.text_input("Password", type="password")
                 if st.button("Masuk"):
-                    if v_nik != target_manager_nik:
+                    if v_nik.zfill(6) != target_manager_nik:
                         st.error("⛔ Anda tidak berwenang memproses pengajuan ini (NIK tidak sesuai penugasan).")
                         st.stop()
                         
@@ -911,13 +905,15 @@ if query_id:
 
                 tgl_final = datetime.datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
                 
-                sheet.update_cell(cell.row, get_col_idx("Timestamp_Fin_Cek"), tgl_final)
-                sheet.update_cell(cell.row, get_col_idx("NIP_Fin_Cek"), st.session_state.user_nik)
-                sheet.update_cell(cell.row, get_col_idx("Status_Qty_Value_Nota"), q1_ans)
-                sheet.update_cell(cell.row, get_col_idx("Reason_Fin_Cek_1"), q1_reason)
-                sheet.update_cell(cell.row, get_col_idx("Status_Item"), q2_ans)
-                sheet.update_cell(cell.row, get_col_idx("Reason_Fin_Cek_2"), q2_reason)
-                sheet.update_cell(cell.row, get_col_idx("Revisi_Bukti_Realisasi"), link_revisi)
+                batch_update_row(sheet, cell.row, headers, {
+                    "Timestamp_Fin_Cek": tgl_final,
+                    "NIP_Fin_Cek": st.session_state.user_nik,
+                    "Status_Qty_Value_Nota": q1_ans,
+                    "Reason_Fin_Cek_1": q1_reason,
+                    "Status_Item": q2_ans,
+                    "Reason_Fin_Cek_2": q2_reason,
+                    "Revisi_Bukti_Realisasi": link_revisi
+                })
                 
                 st.success("✅ Berhasil! Tugas Anda telah selesai. Status Kasbon Completed."); 
                 st.balloons()

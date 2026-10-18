@@ -1,0 +1,170 @@
+<script>
+  /**
+   * ============================================================================
+   * MODULE: SharedUtils.html
+   * DESCRIPTION: Client-side utilities (Terbilang, Rupiah, Image Compression,
+   *              and :user-invalid + aria-invalid form validation bridge)
+   * ============================================================================
+   */
+  const KasbonClientUtils = (function () {
+    const UNITS = [
+      '', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima',
+      'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'
+    ];
+
+    function terbilangCore(n) {
+      n = Math.floor(Math.abs(Number(n) || 0));
+      if (n === 0) return '';
+      if (n < 12) return UNITS[n];
+      if (n < 20) return (terbilangCore(n - 10) + ' Belas').trim();
+      if (n < 100) return (UNITS[Math.floor(n / 10)] + ' Puluh ' + terbilangCore(n % 10)).trim();
+      if (n < 200) return ('Seratus ' + terbilangCore(n - 100)).trim();
+      if (n < 1000) return (UNITS[Math.floor(n / 100)] + ' Ratus ' + terbilangCore(n % 100)).trim();
+      if (n < 2000) return ('Seribu ' + terbilangCore(n - 1000)).trim();
+      if (n < 1000000) return (terbilangCore(Math.floor(n / 1000)) + ' Ribu ' + terbilangCore(n % 1000)).trim();
+      if (n < 1000000000) return (terbilangCore(Math.floor(n / 1000000)) + ' Juta ' + terbilangCore(n % 1000000)).trim();
+      if (n < 1000000000000) return (terbilangCore(Math.floor(n / 1000000000)) + ' Miliar ' + terbilangCore(n % 1000000000)).trim();
+      return String(n);
+    }
+
+    function formatTerbilang(amount) {
+      const val = Math.floor(Number(amount) || 0);
+      if (val <= 0) return 'Nol Rupiah';
+      return terbilangCore(val).replace(/\s+/g, ' ').trim() + ' Rupiah';
+    }
+
+    function formatRupiah(amount) {
+      const val = Math.floor(Number(amount) || 0);
+      return 'Rp ' + val.toLocaleString('id-ID');
+    }
+
+    /**
+     * Reads a file from an <input type="file">, compressing images via Canvas
+     * to save bandwidth & storage quota before returning { base64, mimeType, fileName }.
+     */
+    function prepareFilePayload(fileInput, maxDimension) {
+      maxDimension = maxDimension || 1600;
+      return new Promise(function (resolve, reject) {
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+          resolve(null);
+          return;
+        }
+        const file = fileInput.files[0];
+        if (file.size > 10 * 1024 * 1024) {
+          reject(new Error('Ukuran file terlalu besar (Maks 10MB).'));
+          return;
+        }
+
+        // If PDF, read directly as Base64
+        if (file.type === 'application/pdf') {
+          if (file.size > 5 * 1024 * 1024) {
+            reject(new Error('Ukuran PDF maksimal 5MB.'));
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            resolve({
+              base64: e.target.result.split(',')[1],
+              mimeType: 'application/pdf',
+              fileName: file.name
+            });
+          };
+          reader.onerror = function () { reject(new Error('Gagal membaca file PDF.')); };
+          reader.readAsDataURL(file);
+          return;
+        }
+
+        // If Image, compress via HTML5 Canvas
+        const imgReader = new FileReader();
+        imgReader.onload = function (ev) {
+          const img = new Image();
+          img.onload = function () {
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDimension || height > maxDimension) {
+              if (width > height) {
+                height = Math.round((height * maxDimension) / width);
+                width = maxDimension;
+              } else {
+                width = Math.round((width * maxDimension) / height);
+                height = maxDimension;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            resolve({
+              base64: dataUrl.split(',')[1],
+              mimeType: 'image/jpeg',
+              fileName: file.name.replace(/\.[^.]+$/, '') + '.jpg'
+            });
+          };
+          img.onerror = function () { reject(new Error('File gambar tidak valid.')); };
+          img.src = ev.target.result;
+        };
+        imgReader.onerror = function () { reject(new Error('Gagal membaca file gambar.')); };
+        imgReader.readAsDataURL(file);
+      });
+    }
+
+    /**
+     * Synchronizes :user-invalid visual state with aria-invalid for accessibility,
+     * plus WeakMap fallback for browsers without native :user-invalid support.
+     */
+    function initFormValidation(formEl) {
+      if (!formEl) return;
+      const dirtyState = new WeakMap();
+      const supportsUserInvalid = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('selector(:user-invalid)');
+
+      const syncAriaInvalid = function (input) {
+        if (!input || typeof input.checkValidity !== 'function') return;
+        const valid = input.checkValidity();
+        if (!supportsUserInvalid) {
+          input.classList.toggle('user-invalid-fallback', !valid);
+          input.classList.toggle('user-valid-fallback', valid);
+        }
+        if (!valid) {
+          input.setAttribute('aria-invalid', 'true');
+        } else {
+          input.removeAttribute('aria-invalid');
+        }
+      };
+
+      formEl.addEventListener('blur', function (e) {
+        if (e.target && e.target.matches('.form-control[required]')) {
+          const st = dirtyState.get(e.target) || { interacted: false, blurred: false };
+          st.blurred = true;
+          dirtyState.set(e.target, st);
+          if (supportsUserInvalid || st.interacted) {
+            syncAriaInvalid(e.target);
+          }
+        }
+      }, true);
+
+      formEl.addEventListener('input', function (e) {
+        if (e.target && e.target.matches('.form-control[required]')) {
+          const st = dirtyState.get(e.target) || { interacted: false, blurred: false };
+          st.interacted = true;
+          dirtyState.set(e.target, st);
+          if (e.target.checkValidity() || st.blurred) {
+            syncAriaInvalid(e.target);
+          }
+        }
+      });
+
+      formEl.addEventListener('submit', function () {
+        formEl.querySelectorAll('.form-control[required]').forEach(syncAriaInvalid);
+      });
+    }
+
+    return {
+      formatTerbilang: formatTerbilang,
+      formatRupiah: formatRupiah,
+      prepareFilePayload: prepareFilePayload,
+      initFormValidation: initFormValidation
+    };
+  })();
+</script>

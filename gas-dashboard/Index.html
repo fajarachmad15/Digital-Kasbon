@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Monitoring E-Kasbon | Petty Cash</title>
+  <?!= include('SharedStyles'); ?>
+  <style>
+    /* Dashboard-specific styles */
+    .kpi-card {
+      background: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.15rem 1.25rem;
+      box-shadow: var(--shadow-sm);
+      border-top: 3px solid var(--brand-secondary);
+    }
+    .kpi-card.kpi-alert { border-top-color: #eab308; }
+    .kpi-card.kpi-active { border-top-color: #2563eb; }
+    .kpi-card.kpi-done { border-top-color: #16a34a; }
+    .kpi-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+    .kpi-value { font-size: 1.65rem; font-weight: 800; color: var(--text-main); margin: 0.25rem 0; }
+    .kpi-sub { font-size: 0.8rem; color: var(--text-muted); }
+
+    .table-responsive {
+      overflow-x: auto;
+    }
+    .corp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    .corp-table th {
+      background: #f1f5f9;
+      color: var(--brand-secondary);
+      font-weight: 700;
+      text-align: left;
+      padding: 0.75rem 0.85rem;
+      border-bottom: 2px solid var(--border-color);
+      white-space: nowrap;
+    }
+    .corp-table td {
+      padding: 0.8rem 0.85rem;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+    }
+    .corp-table tr:hover td {
+      background-color: #f8fafc;
+    }
+
+    /* Mini 7-Step Progress Dots */
+    .step-dots {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .step-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      font-size: 0.7rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #e2e8f0;
+      color: #64748b;
+    }
+    .step-dot.done { background: #16a34a; color: #fff; }
+    .step-dot.active { background: #eab308; color: #0f172a; box-shadow: 0 0 0 2px rgba(234,179,8,0.35); }
+    .step-dot.reject { background: #dc2626; color: #fff; }
+
+    /* Native Dialog Modal */
+    dialog.corp-modal {
+      width: 95%;
+      max-width: 780px;
+      border: none;
+      border-radius: var(--radius-lg);
+      padding: 0;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+    }
+    dialog.corp-modal::backdrop {
+      background: rgba(15, 23, 42, 0.55);
+    }
+    .modal-header {
+      background: var(--brand-secondary);
+      color: #fff;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-body {
+      padding: 1.5rem;
+      max-height: 78vh;
+      overflow-y: auto;
+    }
+    .timeline-item {
+      display: flex;
+      gap: 1rem;
+      padding: 0.85rem 0;
+      border-bottom: 1px dashed var(--border-color);
+      align-items: flex-start;
+    }
+    .timeline-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <header class="corp-navbar">
+    <div class="corp-brand">
+      <span class="corp-badge-pill">AZKO</span>
+      <span>Control Center E-Kasbon Petty Cash</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+      <span style="font-size:0.825rem; color:#cbd5e1;" id="navUserEmail">
+        <?= activeEmail ? ('👤 ' + activeEmail) : 'Mode Monitoring' ?>
+      </span>
+      <button type="button" class="btn btn-outline" style="padding:0.4rem 0.75rem; font-size:0.8rem;" onclick="DashboardApp.openConfigModal()">
+        ⚙️ Konfigurasi URL Form
+      </button>
+      <a id="btnCreateNew" href="#" target="_blank" class="btn btn-primary" style="padding:0.45rem 0.95rem; font-size:0.85rem;">
+        + Buat Pengajuan Baru
+      </a>
+    </div>
+  </header>
+
+  <main class="corp-container-wide">
+    <!-- KPI Summary Row -->
+    <div class="grid-4" style="margin-bottom: 1.25rem;">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Pengajuan</div>
+        <div class="kpi-value" id="kpiTotalCount">0</div>
+        <div class="kpi-sub" id="kpiTotalNominal">Rp 0</div>
+      </div>
+      <div class="kpi-card kpi-alert">
+        <div class="kpi-label">Menunggu Approval / Verif</div>
+        <div class="kpi-value" id="kpiPendingAuth">0</div>
+        <div class="kpi-sub">Step 2, Step 3, Step 6 &amp; Step 7</div>
+      </div>
+      <div class="kpi-card kpi-active">
+        <div class="kpi-label">Proses Pemohon (Uang &amp; Realisasi)</div>
+        <div class="kpi-value" id="kpiRequesterAction">0</div>
+        <div class="kpi-sub">Step 4 (Terima) &amp; Step 5 (Realisasi)</div>
+      </div>
+      <div class="kpi-card kpi-done">
+        <div class="kpi-label">Selesai (Completed)</div>
+        <div class="kpi-value" id="kpiCompleted">0</div>
+        <div class="kpi-sub" id="kpiRejected">Ditolak: 0</div>
+      </div>
+    </div>
+
+    <!-- Filter & Search Card -->
+    <section class="corp-card">
+      <div class="grid-4" style="align-items: end;">
+        <div>
+          <label class="field-label" for="filterStore">Filter Unit Bisnis Store</label>
+          <select id="filterStore" class="form-control" onchange="DashboardApp.applyFilters()">
+            <option value="ALL">Semua Store</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label" for="filterRole">Filter Antrean Tugas (Role)</label>
+          <select id="filterRole" class="form-control" onchange="DashboardApp.applyFilters()">
+            <option value="ALL">Semua Status &amp; Antrean</option>
+            <option value="Manager">⏳ Antrean Tugas Manager (Step 2 &amp; 7)</option>
+            <option value="Senior Cashier">⏳ Antrean Tugas Senior Cashier (Step 3 &amp; 6)</option>
+            <option value="Requester">⏳ Antrean Tugas Pemohon (Step 4 &amp; 5)</option>
+            <option value="COMPLETED">✅ Selesai (Completed)</option>
+            <option value="REJECTED">❌ Ditolak (Rejected)</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label" for="filterSearch">Cari Nomor ID / Nama / NIP / Keperluan</label>
+          <input type="search" id="filterSearch" class="form-control" placeholder="Ketik KB..., Nama, atau NIP..." oninput="DashboardApp.renderTable()">
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <button type="button" class="btn btn-primary btn-block" onclick="DashboardApp.loadData()">
+            🔄 Refresh Data
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Monitoring Table -->
+    <section class="corp-card">
+      <div class="corp-card-header">
+        <h2 class="corp-card-title">📋 Daftar Monitoring Progress Kasbon (Step 1 s/d Step 7)</h2>
+        <span id="tableCountInfo" style="font-size:0.85rem; color:var(--text-muted);">Memuat data...</span>
+      </div>
+
+      <div id="dashboardAlert" style="display:none;" class="alert alert-error"></div>
+
+      <div class="table-responsive">
+        <table class="corp-table">
+          <thead>
+            <tr>
+              <th>No. Pengajuan</th>
+              <th>Tanggal</th>
+              <th>Store</th>
+              <th>Pemohon (NIP)</th>
+              <th>Nominal</th>
+              <th>Keperluan &amp; Janji</th>
+              <th>Progress (Step 1-7)</th>
+              <th>Status Saat Ini</th>
+              <th>Aksi &amp; Form</th>
+            </tr>
+          </thead>
+          <tbody id="kasbonTableBody">
+            <tr>
+              <td colspan="9" style="text-align:center; padding:2rem; color:var(--text-muted);">
+                ⏳ Memuat data dari Supabase...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL 1: 7-STEP VISUAL TRACKER & RINCIAN LENGKAP -->
+  <dialog id="trackerModal" class="corp-modal">
+    <div class="modal-header">
+      <h3 style="margin:0; font-size:1.05rem;" id="modalTitle">Detail &amp; Tracker Kasbon</h3>
+      <button type="button" class="btn btn-outline" style="padding:0.25rem 0.6rem;" onclick="document.getElementById('trackerModal').close()">✕ Tutup</button>
+    </div>
+    <div class="modal-body" id="modalContent"></div>
+  </dialog>
+
+  <!-- MODAL 2: KONFIGURASI LINK WEB APP ANTAR-FORM -->
+  <dialog id="configModal" class="corp-modal">
+    <div class="modal-header">
+      <h3 style="margin:0; font-size:1.05rem;">⚙️ Konfigurasi Link Antar-Project Google Apps Script</h3>
+      <button type="button" class="btn btn-outline" style="padding:0.25rem 0.6rem;" onclick="document.getElementById('configModal').close()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.875rem; color:var(--text-muted); margin-top:0;">
+        Tempelkan URL Web App (<code>https://script.google.com/macros/s/.../exec</code>) dari masing-masing project form agar tombol aksi di Dashboard langsung mengarah ke form yang tepat.
+      </p>
+      <div class="field-group">
+        <label class="field-label">1. URL Web App Dashboard (Project Ini)</label>
+        <input type="url" id="cfgUrlDashboard" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+      <div class="field-group">
+        <label class="field-label">2. URL Web App Form Pengajuan Baru</label>
+        <input type="url" id="cfgUrlPengajuan" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+      <div class="field-group">
+        <label class="field-label">3. URL Web App Portal Manager (Step 2 &amp; Step 7)</label>
+        <input type="url" id="cfgUrlManager" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+      <div class="field-group">
+        <label class="field-label">4. URL Web App Portal Senior Cashier (Step 3 &amp; Step 6)</label>
+        <input type="url" id="cfgUrlCashier" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+      <div class="field-group">
+        <label class="field-label">5. URL Web App Portal Requester (Step 4 &amp; Step 5)</label>
+        <input type="url" id="cfgUrlRequester" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('configModal').close()">Batal</button>
+        <button type="button" class="btn btn-primary" id="btnSaveConfig" onclick="DashboardApp.saveConfigUrls()">Simpan Konfigurasi</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    window.INITIAL_QUERY_ID = "<?= initialId ?>";
+  </script>
+  <?!= include('SharedUtils'); ?>
+  <?!= include('Scripts'); ?>
+</body>
+</html>

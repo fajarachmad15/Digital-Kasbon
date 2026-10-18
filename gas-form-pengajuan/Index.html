@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Form Pengajuan Kasbon Baru | Petty Cash</title>
+  <?!= include('SharedStyles'); ?>
+</head>
+<body>
+  <header class="corp-navbar">
+    <div class="corp-brand">
+      <span class="corp-badge-pill">STEP 1</span>
+      <span>Form Pengajuan Kasbon Petty Cash</span>
+    </div>
+    <div>
+      <a id="navDashboardBtn" href="#" target="_blank" class="btn btn-outline" style="padding:0.4rem 0.85rem; font-size:0.825rem;">
+        📊 Buka Dashboard Monitoring
+      </a>
+    </div>
+  </header>
+
+  <main class="corp-container">
+    <!-- FORM PENGAJUAN BARU -->
+    <section id="formSection" class="corp-card">
+      <div class="corp-card-header">
+        <h2 class="corp-card-title">📝 Formulir Pengajuan Kasbon Baru</h2>
+        <span class="badge badge-info">Database: Supabase Cloud</span>
+      </div>
+
+      <div id="formAlert" class="alert alert-error" style="display:none;"></div>
+
+      <form id="kasbonRequestForm" novalidate>
+        <!-- 1. Identifikasi Lokasi Store -->
+        <div class="grid-2">
+          <div class="field-group">
+            <label class="field-label" for="kodeStore">Unit Bisnis / Kode Store <span class="req-star">*</span></label>
+            <select id="kodeStore" class="form-control" required aria-errormessage="err-store" onchange="PengajuanApp.onStoreChange()">
+              <option value="">-- Pilih Kode Store --</option>
+            </select>
+            <div id="err-store" class="error-msg"><span aria-hidden="true">❌</span> Pilih Kode Store terlebih dahulu.</div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="emailRequest">Email Pemohon (Requester) <span class="req-star">*</span></label>
+            <input type="email" id="emailRequest" class="form-control" value="<?= activeEmail ?>" placeholder="nama@email.com" required aria-errormessage="err-email">
+            <div id="err-email" class="error-msg"><span aria-hidden="true">❌</span> Masukkan alamat email aktif yang valid.</div>
+          </div>
+        </div>
+
+        <!-- 2. Identitas Pemohon -->
+        <div class="grid-2">
+          <div class="field-group">
+            <label class="field-label" for="namaPemohon">Dibayarkan Kepada (Nama Lengkap) <span class="req-star">*</span></label>
+            <input type="text" id="namaPemohon" class="form-control" pattern="^[^0-9]+$" placeholder="Contoh: Achmad Fajar" required aria-errormessage="err-nama">
+            <div id="err-nama" class="error-msg"><span aria-hidden="true">❌</span> Wajib diisi &amp; tidak boleh mengandung angka.</div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="nipPemohon">NIP Pemohon (Wajib 6 Digit) <span class="req-star">*</span></label>
+            <input type="text" id="nipPemohon" class="form-control" maxlength="6" pattern="^\d{6}$" inputmode="numeric" placeholder="Contoh: 121014" required aria-errormessage="err-nip">
+            <div id="err-nip" class="error-msg"><span aria-hidden="true">❌</span> NIP wajib terdiri dari 6 digit angka.</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field-group">
+            <label class="field-label" for="departemen">Departemen <span class="req-star">*</span></label>
+            <select id="departemen" class="form-control" required aria-errormessage="err-dept">
+              <option value="">-- Pilih Departemen --</option>
+              <option value="Operational">Operational</option>
+              <option value="Sales">Sales</option>
+              <option value="Inventory">Inventory</option>
+              <option value="HR">HR</option>
+              <option value="Other">Other</option>
+            </select>
+            <div id="err-dept" class="error-msg"><span aria-hidden="true">❌</span> Pilih departemen pemohon.</div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="janjiPenyelesaian">Janji Penyelesaian Realisasi <span class="req-star">*</span></label>
+            <input type="date" id="janjiPenyelesaian" class="form-control" required aria-errormessage="err-janji">
+            <div id="err-janji" class="error-msg"><span aria-hidden="true">❌</span> Pilih tanggal janji penyelesaian.</div>
+          </div>
+        </div>
+
+        <!-- 3. Nominal & Terbilang -->
+        <div class="field-group">
+          <label class="field-label" for="nominal">Nominal Kasbon (Rp - Hanya Angka) <span class="req-star">*</span></label>
+          <input type="number" id="nominal" class="form-control" min="1" step="1" placeholder="Contoh: 500000" required aria-errormessage="err-nominal" oninput="PengajuanApp.onNominalInput()">
+          <div id="err-nominal" class="error-msg"><span aria-hidden="true">❌</span> Masukkan nominal angka lebih dari 0.</div>
+          <div id="terbilangDisplay" class="terbilang-box">Nol Rupiah</div>
+        </div>
+
+        <!-- 4. Keperluan & Lampiran -->
+        <div class="field-group">
+          <label class="field-label" for="keperluan">Untuk Keperluan (Minimal 2 Kata) <span class="req-star">*</span></label>
+          <input type="text" id="keperluan" class="form-control" pattern="^\s*\S+(?:\s+\S+)+\s*$" placeholder="Contoh: Biaya Pembelian ATK Operasional Toko" required aria-errormessage="err-keperluan">
+          <div id="err-keperluan" class="error-msg"><span aria-hidden="true">❌</span> Harap lengkapi keperluan (minimal 2 kata).</div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="fileLampiran">📸 Bukti Lampiran Pendukung (Opsional - Maks 5MB, Foto/PDF)</label>
+          <input type="file" id="fileLampiran" class="form-control" accept="image/*,application/pdf">
+          <small style="color:var(--text-muted);">File gambar otomatis dikompresi secara cerdas sebelum diunggah ke Supabase Storage.</small>
+        </div>
+
+        <!-- 5. Penugasan Petugas Store -->
+        <div class="grid-2">
+          <div class="field-group">
+            <label class="field-label" for="managerIncharge">Manager Incharge <span class="req-star">*</span></label>
+            <select id="managerIncharge" class="form-control" required aria-errormessage="err-mgr">
+              <option value="">-- Pilih Kode Store Dahulu --</option>
+            </select>
+            <div id="err-mgr" class="error-msg"><span aria-hidden="true">❌</span> Pilih Manager Incharge untuk pengajuan ini.</div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="seniorCashier">Senior Cashier Incharge <span class="req-star">*</span></label>
+            <select id="seniorCashier" class="form-control" required aria-errormessage="err-csr">
+              <option value="">-- Pilih Kode Store Dahulu --</option>
+            </select>
+            <div id="err-csr" class="error-msg"><span aria-hidden="true">❌</span> Pilih Senior Cashier untuk pengajuan ini.</div>
+          </div>
+        </div>
+
+        <hr style="border:none; border-top:1px solid var(--border-color); margin:1.25rem 0;">
+
+        <button type="submit" id="btnSubmit" class="btn btn-primary btn-block">
+          🚀 Kirim Pengajuan Kasbon
+        </button>
+      </form>
+    </section>
+
+    <!-- RINGKASAN PENGAJUAN BERHASIL -->
+    <section id="summarySection" class="corp-card" style="display:none;">
+      <div class="alert alert-success">
+        <strong>✅ PENGAJUAN KASBON BERHASIL DISIMPAN KE SUPABASE!</strong><br>
+        Status pengajuan kini tercatat di Dashboard Monitoring dengan status <em>Waiting Manager Approval</em>.
+      </div>
+      <h3 style="margin-top:0;">Ringkasan Pengajuan</h3>
+      <div class="info-grid" id="summaryGrid" style="background:#f8fafc; padding:1.15rem; border-radius:8px; margin-bottom:1.25rem;"></div>
+      <div class="grid-2">
+        <button type="button" class="btn btn-outline btn-block" onclick="PengajuanApp.resetForm()">
+          + Buat Pengajuan Baru
+        </button>
+        <a id="btnGoDashboard" href="#" target="_blank" class="btn btn-primary btn-block">
+          📊 Pantau Progress di Dashboard ↗
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <?!= include('SharedUtils'); ?>
+  <?!= include('Scripts'); ?>
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Portal Manager (Approval &amp; Final Cek) | E-Kasbon</title>
+  <?!= include('SharedStyles'); ?>
+</head>
+<body>
+  <header class="corp-navbar">
+    <div class="corp-brand">
+      <span class="corp-badge-pill">MANAGER</span>
+      <span>Portal Otorisasi Manager (Step 2 Approval &amp; Step 7 Final Cek)</span>
+    </div>
+    <div style="display:flex; gap:0.5rem;">
+      <button type="button" class="btn btn-outline" style="padding:0.4rem 0.75rem; font-size:0.8rem;" onclick="ManagerApp.loadTask('')">
+        📋 Daftar Antrean Manager
+      </button>
+      <a id="navDashboardBtn" href="#" target="_blank" class="btn btn-outline" style="padding:0.4rem 0.85rem; font-size:0.8rem;">
+        📊 Buka Dashboard
+      </a>
+    </div>
+  </header>
+
+  <main class="corp-container">
+    <div id="portalAlert" class="alert alert-error" style="display:none;"></div>
+
+    <!-- PENCARIAN MANUAL NOMOR PENGAJUAN -->
+    <section class="corp-card" style="padding:1rem 1.5rem;">
+      <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+        <strong style="font-size:0.9rem;">Nomor Pengajuan:</strong>
+        <input type="text" id="searchIdInput" class="form-control" style="max-width:260px;" placeholder="Contoh: KBA380-1225-005" value="<?= queryId ?>">
+        <button type="button" class="btn btn-primary" onclick="ManagerApp.loadTask(document.getElementById('searchIdInput').value)">
+          🔍 Buka Pengajuan
+        </button>
+      </div>
+    </section>
+
+    <!-- VIEW 1: DAFTAR ANTREAN TUGAS MANAGER (JIKA TANPA PARAMETER ID) -->
+    <section id="queueSection" class="corp-card" style="display:none;">
+      <div class="corp-card-header">
+        <h2 class="corp-card-title">⏳ Antrean Tugas Manager (Menunggu Approval / Final Cek)</h2>
+      </div>
+      <div id="queueListContainer"></div>
+    </section>
+
+    <!-- VIEW 2: DETAIL PENGAJUAN & FORM VERIFIKASI MANAGER -->
+    <section id="detailSection" style="display:none;">
+      <!-- Card Rincian Kasbon -->
+      <div class="corp-card">
+        <div class="corp-card-header">
+          <h2 class="corp-card-title" id="detailPortalTitle">Rincian Pengajuan Kasbon</h2>
+          <span id="detailStatusBadge" class="badge badge-wait"></span>
+        </div>
+        <div class="info-grid" id="detailInfoGrid"></div>
+        <div id="detailTerbilangBox" class="terbilang-box" style="margin-top:0.85rem;"></div>
+      </div>
+
+      <!-- Card Login Otorisasi Manager -->
+      <div id="loginCard" class="corp-card">
+        <div class="corp-card-header">
+          <h3 class="corp-card-title">🔐 Verifikasi Otorisasi Manager</h3>
+        </div>
+        <p id="assignedManagerCaption" style="font-size:0.9rem; color:var(--text-muted); margin-top:0;"></p>
+        <form id="mgrLoginForm" novalidate>
+          <div class="grid-2">
+            <div class="field-group">
+              <label class="field-label" for="mgrNik">NIK Manager (6 Digit) <span class="req-star">*</span></label>
+              <input type="text" id="mgrNik" class="form-control" maxlength="6" pattern="^\d{6}$" inputmode="numeric" placeholder="003264" required aria-errormessage="err-mgr-nik">
+              <div id="err-mgr-nik" class="error-msg"><span aria-hidden="true">❌</span> Masukkan 6 digit NIK Manager.</div>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="mgrPass">Password <span class="req-star">*</span></label>
+              <input type="password" id="mgrPass" class="form-control" required aria-errormessage="err-mgr-pass">
+              <div id="err-mgr-pass" class="error-msg"><span aria-hidden="true">❌</span> Password wajib diisi.</div>
+            </div>
+          </div>
+          <button type="submit" id="btnVerifyMgr" class="btn btn-primary btn-block">
+            🔓 Masuk &amp; Verifikasi Pengajuan
+          </button>
+        </form>
+      </div>
+
+      <!-- ACTION CARD A: STEP 2 APPROVAL PENGAJUAN -->
+      <div id="step2ActionCard" class="corp-card" style="display:none;">
+        <div class="corp-card-header">
+          <h3 class="corp-card-title">✅ Keputusan Approval Pengajuan (Step 2)</h3>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="rejectReasonApp">Alasan Reject (Wajib diisi jika menolak pengajuan)</label>
+          <textarea id="rejectReasonApp" class="form-control" rows="2" placeholder="Contoh: Nominal melebihi plafon petty cash / lampiran belum sesuai..."></textarea>
+        </div>
+        <div class="grid-2">
+          <button type="button" id="btnApproveStep2" class="btn btn-success btn-block" onclick="ManagerApp.submitStep2('Approved')">
+            ✓ APPROVE PENGAJUAN
+          </button>
+          <button type="button" id="btnRejectStep2" class="btn btn-danger btn-block" onclick="ManagerApp.submitStep2('Reject')">
+            ✕ REJECT PENGAJUAN
+          </button>
+        </div>
+      </div>
+
+      <!-- ACTION CARD B: STEP 7 FINAL CEK REALISASI -->
+      <div id="step7ActionCard" class="corp-card" style="display:none;">
+        <div class="corp-card-header">
+          <h3 class="corp-card-title">🏁 Final Cek Realisasi Kasbon (Step 7)</h3>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">1. Apakah foto nota sesuai dengan data pembelian yang diajukan baik qty maupun nominal pembelanjaan? <span class="req-star">*</span></label>
+          <select id="q1Ans" class="form-control" onchange="ManagerApp.onFinalCheckOptionChange()">
+            <option value="Ya, Sesuai">Ya, Sesuai</option>
+            <option value="Tidak Sesuai">Tidak Sesuai</option>
+          </select>
+        </div>
+        <div class="field-group" id="q1ReasonGroup" style="display:none;">
+          <label class="field-label" for="q1Reason">Alasan Ketidaksesuaian Nota (Wajib) <span class="req-star">*</span></label>
+          <input type="text" id="q1Reason" class="form-control" placeholder="Jelaskan ketidaksesuaian qty atau nominal nota...">
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">2. Apakah foto item sesuai dengan kebutuhan pembelian yang diajukan? <span class="req-star">*</span></label>
+          <select id="q2Ans" class="form-control" onchange="ManagerApp.onFinalCheckOptionChange()">
+            <option value="Ya, Sesuai">Ya, Sesuai</option>
+            <option value="Tidak Sesuai">Tidak Sesuai</option>
+          </select>
+        </div>
+        <div class="field-group" id="q2ReasonGroup" style="display:none;">
+          <label class="field-label" for="q2Reason">Alasan Ketidaksesuaian Item (Wajib) <span class="req-star">*</span></label>
+          <input type="text" id="q2Reason" class="form-control" placeholder="Jelaskan ketidaksesuaian foto item...">
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="fileRevisi">📎 Upload Revisi Bukti Realisasi <span id="revisiReqTag" style="display:none; color:var(--danger-text);">(WAJIB karena ada ketidaksesuaian)</span></label>
+          <input type="file" id="fileRevisi" class="form-control" accept="image/*,application/pdf">
+        </div>
+
+        <button type="button" id="btnSubmitStep7" class="btn btn-primary btn-block" onclick="ManagerApp.submitStep7()">
+          ✓ POSTING FINAL CEK &amp; COMPLETE KASBON
+        </button>
+      </div>
+
+      <!-- INFO CARD: JIKA BUKAN GILIRAN MANAGER -->
+      <div id="notManagerTurnCard" class="corp-card" style="display:none;">
+        <div class="alert alert-info" id="notManagerTurnMsg" style="margin-bottom:0;"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    window.INITIAL_QUERY_ID = "<?= queryId ?>";
+  </script>
+  <?!= include('SharedUtils'); ?>
+  <?!= include('Scripts'); ?>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<script>
+  /**
+   * ============================================================================
+   * MODULE: Scripts.html (PROJECT 3: GAS-PORTAL-MANAGER)
+   * DESCRIPTION: Client-side logic for Manager Approval (Step 2) & Final Check (Step 7)
+   * ============================================================================
+   */
+  const ManagerApp = (function () {
+    let currentRecord = null;
+    let verifiedCreds = null;
+    let portalUrls = {};
+
+    function esc(str) {
+      if (str === null || str === undefined) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? esc(iso) : d.toLocaleString('id-ID');
+    }
+
+    function showAlert(msg, isSuccess) {
+      const el = document.getElementById('portalAlert');
+      if (!msg) {
+        el.style.display = 'none';
+        return;
+      }
+      el.className = 'alert ' + (isSuccess ? 'alert-success' : 'alert-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function init() {
+      const loginForm = document.getElementById('mgrLoginForm');
+      KasbonClientUtils.initFormValidation(loginForm);
+
+      loginForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!loginForm.checkValidity()) return;
+        verifyLogin();
+      });
+
+      loadTask(window.INITIAL_QUERY_ID || '');
+    }
+
+    function loadTask(idStr) {
+      showAlert('');
+      const cleanId = (idStr || '').trim().toUpperCase();
+      document.getElementById('searchIdInput').value = cleanId;
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          portalUrls = res.portalUrls || {};
+          if (portalUrls.dashboard) {
+            document.getElementById('navDashboardBtn').href = portalUrls.dashboard;
+          }
+
+          if (res.mode === 'QUEUE') {
+            renderQueue(res.queue || []);
+          } else {
+            renderDetail(res.record);
+          }
+        })
+        .withFailureHandler(function (err) {
+          showAlert(err.message || String(err));
+        })
+        .apiGetManagerTask(cleanId);
+    }
+
+    function renderQueue(items) {
+      document.getElementById('detailSection').style.display = 'none';
+      const qSec = document.getElementById('queueSection');
+      qSec.style.display = 'block';
+      const container = document.getElementById('queueListContainer');
+
+      if (!items || items.length === 0) {
+        container.innerHTML = '<div class="alert alert-info" style="margin-bottom:0;">🎉 Tidak ada antrean pengajuan yang menunggu tindakan Manager saat ini.</div>';
+        return;
+      }
+
+      let html = '<div style="display:grid; gap:0.75rem;">';
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const stepBadge = it.overall_status === 'WAITING_MGR_APPROVAL'
+          ? '<span class="badge badge-wait">Step 2: Approval Pengajuan</span>'
+          : '<span class="badge badge-info">Step 7: Final Cek Realisasi</span>';
+
+        html += '<div style="border:1px solid var(--border-color); border-radius:10px; padding:1rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">'
+          + '<div>'
+          + '<div><strong>' + esc(it.no_pengajuan) + '</strong> &bull; <span class="badge badge-info">' + esc(it.kode_store) + '</span> ' + stepBadge + '</div>'
+          + '<div style="font-size:0.9rem; margin-top:0.25rem;">Pemohon: <strong>' + esc(it.dibayarkan_kepada) + '</strong> (' + esc(it.nip_req) + ') &bull; Senilai: <strong>' + KasbonClientUtils.formatRupiah(it.nominal) + '</strong></div>'
+          + '<div style="font-size:0.825rem; color:var(--text-muted);">Manager Incharge: ' + esc(it.manager_incharge) + ' | Keperluan: ' + esc(it.keperluan) + '</div>'
+          + '</div>'
+          + '<button type="button" class="btn btn-primary" onclick="ManagerApp.loadTask(\'' + esc(it.no_pengajuan) + '\')">Proses Sekarang →</button>'
+          + '</div>';
+      }
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function renderDetail(r) {
+      currentRecord = r;
+      verifiedCreds = null;
+
+      document.getElementById('queueSection').style.display = 'none';
+      document.getElementById('detailSection').style.display = 'block';
+      document.getElementById('step2ActionCard').style.display = 'none';
+      document.getElementById('step7ActionCard').style.display = 'none';
+      document.getElementById('notManagerTurnCard').style.display = 'none';
+
+      document.getElementById('detailStatusBadge').textContent = r.status_label;
+
+      const lampiranReq = (r.bukti_lampiran_req && r.bukti_lampiran_req !== '-')
+        ? '<a href="' + esc(r.bukti_lampiran_req) + '" target="_blank">Lihat Bukti Pengajuan ↗</a>'
+        : '-';
+      const lampiranRea = (r.bukti_lampiran_rea && r.bukti_lampiran_rea !== '-')
+        ? '<a href="' + esc(r.bukti_lampiran_rea) + '" target="_blank">Lihat Bukti Realisasi ↗</a>'
+        : '-';
+
+      let extraRealisasiHtml = '';
+      if (r.status_realisasi === 'Terrealisasi') {
+        extraRealisasiHtml = ''
+          + '<div class="info-label">Total Belanja Realisasi</div><div class="info-val">' + KasbonClientUtils.formatRupiah(r.nominal_pembelanjaan_rea) + '</div>'
+          + '<div class="info-label">Verifikasi Cashier (Step 6)</div><div class="info-val">' + esc(r.status_verifikasi_rea) + ' (Kembali: ' + KasbonClientUtils.formatRupiah(r.uang_dikembalikan_ver_rea) + ' | Reimburse: ' + KasbonClientUtils.formatRupiah(r.uang_diterima_ver_rea) + ')</div>'
+          + '<div class="info-label">Catatan Cashier</div><div class="info-val">' + esc(r.reason_ver_rea || '-') + '</div>'
+          + '<div class="info-label">Lampiran Realisasi</div><div class="info-val">' + lampiranRea + '</div>';
+      }
+
+      document.getElementById('detailInfoGrid').innerHTML = ''
+        + '<div class="info-label">Nomor Pengajuan Kasbon</div><div class="info-val">' + esc(r.no_pengajuan) + '</div>'
+        + '<div class="info-label">Tgl &amp; Jam Pengajuan</div><div class="info-val">' + fmtDate(r.timestamp_req) + '</div>'
+        + '<div class="info-label">Unit Bisnis Store</div><div class="info-val">' + esc(r.kode_store) + ' - ' + esc(r.nama_store) + '</div>'
+        + '<div class="info-label">Dibayarkan Kepada</div><div class="info-val">' + esc(r.dibayarkan_kepada) + ' / ' + esc(r.nip_req) + '</div>'
+        + '<div class="info-label">Departemen</div><div class="info-val">' + esc(r.departemen) + '</div>'
+        + '<div class="info-label">Senilai</div><div class="info-val">' + KasbonClientUtils.formatRupiah(r.nominal) + '</div>'
+        + '<div class="info-label">Untuk Keperluan</div><div class="info-val">' + esc(r.keperluan) + '</div>'
+        + '<div class="info-label">Approval Pendukung</div><div class="info-val">' + lampiranReq + '</div>'
+        + '<div class="info-label">Janji Penyelesaian</div><div class="info-val">' + esc(r.janji_penyelesaian) + '</div>'
+        + '<div class="info-label">Manager Incharge</div><div class="info-val">' + esc(r.manager_incharge) + '</div>'
+        + extraRealisasiHtml;
+
+      document.getElementById('detailTerbilangBox').textContent = r.terbilang_req;
+
+      const isManagerTurn = (r.overall_status === 'WAITING_MGR_APPROVAL' || r.overall_status === 'WAITING_MGR_FINAL_CHECK');
+      if (isManagerTurn) {
+        document.getElementById('loginCard').style.display = 'block';
+        document.getElementById('assignedManagerCaption').textContent =
+          'Otorisasi khusus untuk Manager ditugaskan: ' + (r.manager_incharge_name || r.manager_incharge) + ' (NIK: ' + (r.manager_incharge_nik || '-') + ')';
+      } else {
+        document.getElementById('loginCard').style.display = 'none';
+        document.getElementById('notManagerTurnCard').style.display = 'block';
+        document.getElementById('notManagerTurnMsg').innerHTML =
+          'ℹ️ Pengajuan ini saat ini berstatus: <strong>' + esc(r.status_label) + '</strong>.<br>Tidak ada tindakan yang diperlukan dari Manager pada tahap ini.';
+      }
+    }
+
+    function verifyLogin() {
+      showAlert('');
+      const nik = document.getElementById('mgrNik').value;
+      const password = document.getElementById('mgrPass').value;
+      const btn = document.getElementById('btnVerifyMgr');
+      btn.disabled = true;
+      btn.textContent = '⏳ Memverifikasi Otorisasi...';
+
+      google.script.run
+        .withSuccessHandler(function () {
+          btn.disabled = false;
+          btn.textContent = '🔓 Masuk & Verifikasi Pengajuan';
+          verifiedCreds = { nik: nik, password: password };
+          document.getElementById('loginCard').style.display = 'none';
+
+          if (currentRecord.overall_status === 'WAITING_MGR_APPROVAL') {
+            document.getElementById('step2ActionCard').style.display = 'block';
+          } else if (currentRecord.overall_status === 'WAITING_MGR_FINAL_CHECK') {
+            document.getElementById('step7ActionCard').style.display = 'block';
+          }
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = '🔓 Masuk & Verifikasi Pengajuan';
+          showAlert(err.message || String(err));
+        })
+        .apiVerifyManager({
+          noPengajuan: currentRecord.no_pengajuan,
+          nik: nik,
+          password: password
+        });
+    }
+
+    function submitStep2(decision) {
+      showAlert('');
+      const reason = document.getElementById('rejectReasonApp').value.trim();
+      if (decision === 'Reject' && !reason) {
+        showAlert('Harap isi Alasan Reject sebelum menolak pengajuan.');
+        return;
+      }
+
+      const b1 = document.getElementById('btnApproveStep2');
+      const b2 = document.getElementById('btnRejectStep2');
+      b1.disabled = true;
+      b2.disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          b1.disabled = false;
+          b2.disabled = false;
+          showAlert('✅ Berhasil! Pengajuan ' + res.noPengajuan + ' telah di-' + res.decision + '.', true);
+          loadTask(res.noPengajuan);
+        })
+        .withFailureHandler(function (err) {
+          b1.disabled = false;
+          b2.disabled = false;
+          showAlert(err.message || String(err));
+        })
+        .apiSubmitManagerApproval({
+          noPengajuan: currentRecord.no_pengajuan,
+          nik: verifiedCreds.nik,
+          password: verifiedCreds.password,
+          decision: decision,
+          reason: reason
+        });
+    }
+
+    function onFinalCheckOptionChange() {
+      const q1 = document.getElementById('q1Ans').value;
+      const q2 = document.getElementById('q2Ans').value;
+      document.getElementById('q1ReasonGroup').style.display = q1 === 'Tidak Sesuai' ? 'block' : 'none';
+      document.getElementById('q2ReasonGroup').style.display = q2 === 'Tidak Sesuai' ? 'block' : 'none';
+      const anyMismatch = (q1 === 'Tidak Sesuai' || q2 === 'Tidak Sesuai');
+      document.getElementById('revisiReqTag').style.display = anyMismatch ? 'inline' : 'none';
+    }
+
+    async function submitStep7() {
+      showAlert('');
+      const q1Ans = document.getElementById('q1Ans').value;
+      const q1Reason = document.getElementById('q1Reason').value.trim();
+      const q2Ans = document.getElementById('q2Ans').value;
+      const q2Reason = document.getElementById('q2Reason').value.trim();
+      const fileInput = document.getElementById('fileRevisi');
+
+      if ((q1Ans === 'Tidak Sesuai' && !q1Reason) || (q2Ans === 'Tidak Sesuai' && !q2Reason)) {
+        showAlert('Harap isi alasan (Reason) untuk pertanyaan yang dipilih Tidak Sesuai.');
+        return;
+      }
+      if ((q1Ans === 'Tidak Sesuai' || q2Ans === 'Tidak Sesuai') && (!fileInput.files || fileInput.files.length === 0)) {
+        showAlert('Karena ada ketidaksesuaian, wajib mengunggah Bukti Revisi Realisasi.');
+        return;
+      }
+
+      const btn = document.getElementById('btnSubmitStep7');
+      btn.disabled = true;
+      btn.textContent = '⏳ Memposting Final Cek...';
+
+      try {
+        const filePayload = await KasbonClientUtils.prepareFilePayload(fileInput, 1600);
+        google.script.run
+          .withSuccessHandler(function (res) {
+            btn.disabled = false;
+            btn.textContent = '✓ POSTING FINAL CEK & COMPLETE KASBON';
+            showAlert('✅ Berhasil! Final Cek selesai dan status kasbon ' + res.noPengajuan + ' kini COMPLETED.', true);
+            loadTask(res.noPengajuan);
+          })
+          .withFailureHandler(function (err) {
+            btn.disabled = false;
+            btn.textContent = '✓ POSTING FINAL CEK & COMPLETE KASBON';
+            showAlert(err.message || String(err));
+          })
+          .apiSubmitManagerFinalCheck({
+            noPengajuan: currentRecord.no_pengajuan,
+            nik: verifiedCreds.nik,
+            password: verifiedCreds.password,
+            q1Ans: q1Ans,
+            q1Reason: q1Reason,
+            q2Ans: q2Ans,
+            q2Reason: q2Reason,
+            filePayload: filePayload
+          });
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '✓ POSTING FINAL CEK & COMPLETE KASBON';
+        showAlert(e.message || String(e));
+      }
+    }
+
+    return {
+      init: init,
+      loadTask: loadTask,
+      submitStep2: submitStep2,
+      onFinalCheckOptionChange: onFinalCheckOptionChange,
+      submitStep7: submitStep7
+    };
+  })();
+
+  document.addEventListener('DOMContentLoaded', function () {
+    ManagerApp.init();
+  });
+</script>
