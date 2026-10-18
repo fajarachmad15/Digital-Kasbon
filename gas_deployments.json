@@ -1,0 +1,42 @@
+{
+  "dashboard": {
+    "title": "Kasbon - Dashboard Monitoring",
+    "folder": "gas-dashboard",
+    "script_id": "1ySEkIYUSU6k70Hlarzlf1f9QQlCnXcjPqRzWCRFoW1I7GPhcuzqZPDQY",
+    "script_editor_url": "https://script.google.com/d/1ySEkIYUSU6k70Hlarzlf1f9QQlCnXcjPqRzWCRFoW1I7GPhcuzqZPDQY/edit",
+    "deployment_id": "AKfycbyczT2ZiO4w0RrBO11oykTClTBRzMDRu5QXSltWJgzZALGABQIcIJZeV9xckEZ7lHc",
+    "url": "https://script.google.com/macros/s/AKfycbyczT2ZiO4w0RrBO11oykTClTBRzMDRu5QXSltWJgzZALGABQIcIJZeV9xckEZ7lHc/exec"
+  },
+  "formPengajuan": {
+    "title": "Kasbon - Form Pengajuan (Step 1)",
+    "folder": "gas-form-pengajuan",
+    "script_id": "17EpSQUr7bgYCVoXma2oAnhahItGQxPic9fUuaki3pI4ymKMQlk30_LWC",
+    "script_editor_url": "https://script.google.com/d/17EpSQUr7bgYCVoXma2oAnhahItGQxPic9fUuaki3pI4ymKMQlk30_LWC/edit",
+    "deployment_id": "AKfycbxIIwX65loQQc3PuYoEU4Vgm0vqwwTOAmjUrLtSfWNB54rt3QyBs7EPjkayqW7eQWg",
+    "url": "https://script.google.com/macros/s/AKfycbxIIwX65loQQc3PuYoEU4Vgm0vqwwTOAmjUrLtSfWNB54rt3QyBs7EPjkayqW7eQWg/exec"
+  },
+  "portalManager": {
+    "title": "Kasbon - Portal Manager (Step 2 & 7)",
+    "folder": "gas-portal-manager",
+    "script_id": "1MNkVVvsTF9LSba4QRtUn4i73b3vI7_c8FzLeUZD4NQsem8Oc7wETbuHY",
+    "script_editor_url": "https://script.google.com/d/1MNkVVvsTF9LSba4QRtUn4i73b3vI7_c8FzLeUZD4NQsem8Oc7wETbuHY/edit",
+    "deployment_id": "AKfycbwhF50hYPVveIRiVRrN-xPsqXQEX8ca8S8qhYPejc0simgjOU-YyQf7gD2wngUcIiA",
+    "url": "https://script.google.com/macros/s/AKfycbwhF50hYPVveIRiVRrN-xPsqXQEX8ca8S8qhYPejc0simgjOU-YyQf7gD2wngUcIiA/exec"
+  },
+  "portalCashier": {
+    "title": "Kasbon - Portal Kasir (Step 3 & 6)",
+    "folder": "gas-portal-cashier",
+    "script_id": "1SLv7KJx6bA7OE1Essz1wraGDow14XkgcwxaeAukT43iypwXpP07EXjsN",
+    "script_editor_url": "https://script.google.com/d/1SLv7KJx6bA7OE1Essz1wraGDow14XkgcwxaeAukT43iypwXpP07EXjsN/edit",
+    "deployment_id": "AKfycbwA4RkZ2un-7q3kjkKWItYRon3OYrGftIHLP89oIn7SuaRjTBWRnu5vhA72_aLimXw",
+    "url": "https://script.google.com/macros/s/AKfycbwA4RkZ2un-7q3kjkKWItYRon3OYrGftIHLP89oIn7SuaRjTBWRnu5vhA72_aLimXw/exec"
+  },
+  "portalRequester": {
+    "title": "Kasbon - Portal Pemohon (Step 4 & 5)",
+    "folder": "gas-portal-requester",
+    "script_id": "1ZtIbXD7nfqG9xA-DaFnMQOntQ4nujT6ytDKVymWDY49zNDibp6DgMgd6",
+    "script_editor_url": "https://script.google.com/d/1ZtIbXD7nfqG9xA-DaFnMQOntQ4nujT6ytDKVymWDY49zNDibp6DgMgd6/edit",
+    "deployment_id": "AKfycbxvcV2WMj4f-lGCpN6qQhs-zbZzvsnQ_WguRIA8moZHkFWgr-1NsFtUGFPR2yl5Kt0P",
+    "url": "https://script.google.com/macros/s/AKfycbxvcV2WMj4f-lGCpN6qQhs-zbZzvsnQ_WguRIA8moZHkFWgr-1NsFtUGFPR2yl5Kt0P/exec"
+  }
+}

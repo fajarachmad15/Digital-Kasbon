@@ -14,12 +14,12 @@ const AppConfig = (function () {
     MAX_UPLOAD_BYTES: 5 * 1024 * 1024, // 5 MB
     TIMEZONE: 'Asia/Jakarta',
 
-    // Interconnected Web App URLs (Update via Script Properties or here after deployment)
-    URL_DASHBOARD: '',
-    URL_FORM_PENGAJUAN: '',
-    URL_PORTAL_MANAGER: '',
-    URL_PORTAL_CASHIER: '',
-    URL_PORTAL_REQUESTER: ''
+    // Interconnected Web App URLs (Live Deployed)
+    URL_DASHBOARD: 'https://script.google.com/macros/s/AKfycbyczT2ZiO4w0RrBO11oykTClTBRzMDRu5QXSltWJgzZALGABQIcIJZeV9xckEZ7lHc/exec',
+    URL_FORM_PENGAJUAN: 'https://script.google.com/macros/s/AKfycbxIIwX65loQQc3PuYoEU4Vgm0vqwwTOAmjUrLtSfWNB54rt3QyBs7EPjkayqW7eQWg/exec',
+    URL_PORTAL_MANAGER: 'https://script.google.com/macros/s/AKfycbwhF50hYPVveIRiVRrN-xPsqXQEX8ca8S8qhYPejc0simgjOU-YyQf7gD2wngUcIiA/exec',
+    URL_PORTAL_CASHIER: 'https://script.google.com/macros/s/AKfycbwA4RkZ2un-7q3kjkKWItYRon3OYrGftIHLP89oIn7SuaRjTBWRnu5vhA72_aLimXw/exec',
+    URL_PORTAL_REQUESTER: 'https://script.google.com/macros/s/AKfycbxvcV2WMj4f-lGCpN6qQhs-zbZzvsnQ_WguRIA8moZHkFWgr-1NsFtUGFPR2yl5Kt0P/exec'
   };
 
   /**
