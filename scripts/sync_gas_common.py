@@ -31,7 +31,8 @@ SHARED_FILES = [
     "SharedUtils.html",
 ]
 
-MANIFEST = {
+# Standard manifest for Portals (executes as deploying developer)
+MANIFEST_DEPLOYING = {
     "timeZone": "Asia/Jakarta",
     "dependencies": {},
     "exceptionLogging": "STACKDRIVER",
@@ -42,15 +43,33 @@ MANIFEST = {
     }
 }
 
+# Dedicated manifest for Form Pengajuan (executes as accessing user to capture verified Google email)
+MANIFEST_ACCESSING = {
+    "timeZone": "Asia/Jakarta",
+    "dependencies": {},
+    "exceptionLogging": "STACKDRIVER",
+    "runtimeVersion": "V8",
+    "webapp": {
+        "executeAs": "USER_ACCESSING",
+        "access": "ANYONE"
+    },
+    "oauthScopes": [
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/script.external_request",
+        "https://www.googleapis.com/auth/drive"
+    ]
+}
+
 def main():
     for proj in TARGET_PROJECTS:
         proj_dir = os.path.join(BASE_DIR, proj)
         os.makedirs(proj_dir, exist_ok=True)
 
-        # Write appsscript.json manifest
+        # Write appsscript.json manifest (project-specific)
         manifest_path = os.path.join(proj_dir, "appsscript.json")
+        selected_manifest = MANIFEST_ACCESSING if proj == "gas-form-pengajuan" else MANIFEST_DEPLOYING
         with open(manifest_path, "w", encoding="utf-8") as f:
-            json.dump(MANIFEST, f, indent=2)
+            json.dump(selected_manifest, f, indent=2)
 
         # Sync shared files from gas-common/
         for fname in SHARED_FILES:
@@ -59,6 +78,7 @@ def main():
             shutil.copy2(src, dst)
 
         print(f"[OK] Synced {len(SHARED_FILES)} shared modules + appsscript.json -> {proj}/")
+
 
 if __name__ == "__main__":
     main()

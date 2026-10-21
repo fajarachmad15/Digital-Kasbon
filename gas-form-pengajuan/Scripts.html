@@ -14,11 +14,32 @@
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    function lockEmail(email) {
+      const emailInput = document.getElementById('emailRequest');
+      const helper = document.getElementById('emailHelperText');
+      if (!emailInput) return;
+      const clean = String(email || '').trim().toLowerCase();
+      if (!clean || clean.indexOf('@') === -1) return;
+      emailInput.value = clean;
+      emailInput.setAttribute('readonly', 'readonly');
+      emailInput.style.backgroundColor = '#f1f5f9';
+      emailInput.style.cursor = 'not-allowed';
+      emailInput.style.fontWeight = '600';
+      emailInput.style.color = '#1e293b';
+      if (helper) {
+        helper.innerHTML = '🔒 Terisi otomatis sesuai akun Google Anda (tidak dapat diubah).';
+        helper.style.display = 'block';
+      }
+      try {
+        localStorage.setItem('kasbon_requester_google_email', clean);
+      } catch (e) {}
+    }
+
     function init() {
       const form = document.getElementById('kasbonRequestForm');
       KasbonClientUtils.initFormValidation(form);
 
-      // Auto-populate saved email session from server activeEmail or localStorage
+      // Auto-populate & lock email from server activeEmail or localStorage
       const emailInput = document.getElementById('emailRequest');
       let savedEmail = '<?= activeEmail ?>' || '';
       if (!savedEmail || savedEmail.indexOf('@') === -1) {
@@ -26,17 +47,17 @@
           savedEmail = localStorage.getItem('kasbon_requester_google_email') || '';
         } catch (e) {}
       }
-      if (savedEmail && emailInput && !emailInput.value) {
-        emailInput.value = savedEmail;
-      }
-
-      if (emailInput) {
+      if (savedEmail && savedEmail.indexOf('@') !== -1) {
+        lockEmail(savedEmail);
+      } else if (emailInput) {
+        // If not yet available from session, allow input once then lock
+        emailInput.removeAttribute('readonly');
+        emailInput.style.backgroundColor = '#ffffff';
+        emailInput.style.cursor = 'text';
         emailInput.addEventListener('change', function () {
           const val = (emailInput.value || '').trim().toLowerCase();
           if (val && val.indexOf('@') !== -1) {
-            try {
-              localStorage.setItem('kasbon_requester_google_email', val);
-            } catch (e) {}
+            lockEmail(val);
           }
         });
       }
@@ -67,10 +88,7 @@
           }
 
           if (res.activeEmail && res.activeEmail.indexOf('@') !== -1) {
-            const emailInp = document.getElementById('emailRequest');
-            if (emailInp && !emailInp.value) {
-              emailInp.value = res.activeEmail;
-            }
+            lockEmail(res.activeEmail);
           }
 
           const storeSel = document.getElementById('kodeStore');

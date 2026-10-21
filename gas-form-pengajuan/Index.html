@@ -40,8 +40,9 @@
 
           <div class="field-group">
             <label class="field-label" for="emailRequest">Email Pemohon (Google / Corporate) <span class="req-star">*</span></label>
-            <input type="email" id="emailRequest" class="form-control" value="<?= activeEmail ?>" placeholder="nama@gmail.com atau nama@perusahaan.com" required aria-errormessage="err-email">
+            <input type="email" id="emailRequest" class="form-control" value="<?= activeEmail ?>" placeholder="nama@gmail.com atau nama@perusahaan.com" required aria-errormessage="err-email" readonly style="background-color: #f1f5f9; cursor: not-allowed; font-weight: 600; color: #1e293b;">
             <div id="err-email" class="error-msg"><span aria-hidden="true">❌</span> Masukkan alamat email Google / Corporate yang valid.</div>
+            <small id="emailHelperText" style="color: #15803d; font-weight: 600; display: block; margin-top: 4px;">🔒 Terisi otomatis sesuai akun Google Anda (tidak dapat diubah).</small>
           </div>
         </div>
 
