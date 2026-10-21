@@ -55,9 +55,9 @@
           </div>
 
           <div class="field-group">
-            <label class="field-label" for="nipPemohon">NIP Pemohon (Wajib 6 Digit) <span class="req-star">*</span></label>
-            <input type="text" id="nipPemohon" class="form-control" maxlength="6" pattern="^\d{6}$" inputmode="numeric" placeholder="Contoh: 121014" required aria-errormessage="err-nip">
-            <div id="err-nip" class="error-msg"><span aria-hidden="true">❌</span> NIP wajib terdiri dari 6 digit angka.</div>
+            <label class="field-label" for="nipPemohon">NIP / NIK Pemohon (6 Karakter) <span class="req-star">*</span></label>
+            <input type="text" id="nipPemohon" class="form-control" maxlength="6" minlength="6" pattern="[A-Za-z]*\d+" placeholder="Contoh: 121014 atau E12345" required aria-errormessage="err-nip" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase();">
+            <div id="err-nip" class="error-msg"><span aria-hidden="true">❌</span> Wajib 6 karakter (angka, atau huruf di depan contoh: E12345).</div>
           </div>
         </div>
 

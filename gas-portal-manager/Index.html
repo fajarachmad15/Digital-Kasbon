@@ -64,9 +64,9 @@
         <form id="mgrLoginForm" novalidate>
           <div class="grid-2">
             <div class="field-group">
-              <label class="field-label" for="mgrNik">NIK Manager (6 Digit) <span class="req-star">*</span></label>
-              <input type="text" id="mgrNik" class="form-control" maxlength="6" pattern="^\d{6}$" inputmode="numeric" placeholder="003264" required aria-errormessage="err-mgr-nik">
-              <div id="err-mgr-nik" class="error-msg"><span aria-hidden="true">❌</span> Masukkan 6 digit NIK Manager.</div>
+              <label class="field-label" for="mgrNik">NIK Manager (6 Karakter) <span class="req-star">*</span></label>
+              <input type="text" id="mgrNik" class="form-control" maxlength="6" minlength="6" pattern="[A-Za-z]*\d+" placeholder="Contoh: 003264 atau E12345" required aria-errormessage="err-mgr-nik" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase();">
+              <div id="err-mgr-nik" class="error-msg"><span aria-hidden="true">❌</span> Masukkan 6 karakter NIK Manager (angka atau huruf di depan).</div>
             </div>
             <div class="field-group">
               <label class="field-label" for="mgrPass">Password <span class="req-star">*</span></label>

@@ -53,7 +53,7 @@ function apiSubmitPengajuan(formPayload) {
   if (!kodeStore) throw new Error('Kode Store wajib dipilih.');
   if (!emailRequest || emailRequest.indexOf('@') === -1) throw new Error('Email Pemohon wajib diisi dengan format yang valid.');
   if (!namaPemohon || /\d/.test(namaPemohon)) throw new Error('Nama Lengkap wajib diisi dan tidak boleh mengandung angka.');
-  if (!nipPemohon || !/^\d{6}$/.test(nipPemohon)) throw new Error('NIP wajib terdiri dari 6 digit angka.');
+  if (!nipPemohon || !AuthService.isValidNik(nipPemohon)) throw new Error('NIP/NIK wajib terdiri dari 6 karakter (angka, atau huruf di depan contoh: E12345).');
   if (!departemen || departemen === '-') throw new Error('Departemen wajib dipilih.');
   if (nominal <= 0) throw new Error('Nominal kasbon harus lebih besar dari 0.');
   if (keperluan.split(/\s+/).filter(Boolean).length < 2) throw new Error('Keperluan wajib diisi minimal 2 kata.');

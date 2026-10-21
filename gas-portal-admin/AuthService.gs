@@ -8,9 +8,22 @@
 
 const AuthService = (function () {
   function padNik(nik) {
-    const clean = String(nik || '').trim();
+    const clean = String(nik || '').trim().toUpperCase();
     if (!clean) return '';
-    return clean.length < 6 ? ('000000' + clean).slice(-6) : clean;
+    if (/^\d+$/.test(clean) && clean.length < 6) {
+      return ('000000' + clean).slice(-6);
+    }
+    return clean;
+  }
+
+  /**
+   * Validates corporate NIK format:
+   * Exactly 6 characters, starts with 0 or more uppercase letters, followed only by digits.
+   * e.g. "E12345" is valid, "121014" is valid, "12e456" is invalid.
+   */
+  function isValidNik(nik) {
+    const clean = padNik(nik);
+    return clean.length === 6 && /^[A-Z]*\d+$/.test(clean);
   }
 
   /**
@@ -55,8 +68,8 @@ const AuthService = (function () {
     const expectedStore = String(params.expectedStore || '').trim().toUpperCase();
     const assignedNik = padNik(params.assignedNik);
 
-    if (!inputNik || inputNik.length !== 6) {
-      throw new Error('NIK wajib diisi 6 digit.');
+    if (!inputNik || !isValidNik(inputNik)) {
+      throw new Error('NIK wajib 6 karakter (angka, atau huruf di depan contoh: E12345).');
     }
     if (!inputPass) {
       throw new Error('Password wajib diisi.');
@@ -126,6 +139,7 @@ const AuthService = (function () {
 
   return {
     padNik: padNik,
+    isValidNik: isValidNik,
     getActiveUserEmail: getActiveUserEmail,
     getStoresAndOfficers: getStoresAndOfficers,
     verifyOfficerLogin: verifyOfficerLogin,

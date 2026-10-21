@@ -63,9 +63,9 @@
         <form id="csrLoginForm" novalidate>
           <div class="grid-2">
             <div class="field-group">
-              <label class="field-label" for="csrNik">NIK Senior Cashier (6 Digit) <span class="req-star">*</span></label>
-              <input type="text" id="csrNik" class="form-control" maxlength="6" pattern="^\d{6}$" inputmode="numeric" placeholder="131356" required aria-errormessage="err-csr-nik">
-              <div id="err-csr-nik" class="error-msg"><span aria-hidden="true">❌</span> Masukkan 6 digit NIK Senior Cashier.</div>
+              <label class="field-label" for="csrNik">NIK Senior Cashier (6 Karakter) <span class="req-star">*</span></label>
+              <input type="text" id="csrNik" class="form-control" maxlength="6" minlength="6" pattern="[A-Za-z]*\d+" placeholder="Contoh: 131356 atau E12345" required aria-errormessage="err-csr-nik" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase();">
+              <div id="err-csr-nik" class="error-msg"><span aria-hidden="true">❌</span> Masukkan 6 karakter NIK Senior Cashier (angka atau huruf di depan).</div>
             </div>
             <div class="field-group">
               <label class="field-label" for="csrPass">Password <span class="req-star">*</span></label>

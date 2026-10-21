@@ -173,9 +173,9 @@
 
       <form id="adminLoginForm" novalidate>
         <div class="field-group">
-          <label class="field-label" for="loginNik">NIK Admin (6 Digit) <span class="req-star">*</span></label>
-          <input type="text" id="loginNik" class="form-control" maxlength="6" pattern="^\d{6}$" inputmode="numeric" placeholder="Contoh: 121014" required aria-errormessage="err-login-nik">
-          <div id="err-login-nik" class="error-msg"><span aria-hidden="true">❌</span> Masukkan 6 digit angka NIK Admin.</div>
+          <label class="field-label" for="loginNik">NIK Admin (6 Karakter) <span class="req-star">*</span></label>
+          <input type="text" id="loginNik" class="form-control" maxlength="6" minlength="6" pattern="[A-Za-z]*\d+" placeholder="Contoh: 121014 atau E12345" required aria-errormessage="err-login-nik" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase();">
+          <div id="err-login-nik" class="error-msg"><span aria-hidden="true">❌</span> Masukkan 6 karakter NIK Admin (angka atau huruf di depan).</div>
         </div>
 
         <div class="field-group">
@@ -431,9 +431,9 @@
 
         <div class="grid-2">
           <div class="field-group">
-            <label class="field-label" for="userNikInput">NIK Karyawan (6 Digit) <span class="req-star">*</span></label>
-            <input type="text" id="userNikInput" class="form-control" maxlength="6" pattern="^\d{6}$" inputmode="numeric" placeholder="Contoh: 121014" required aria-errormessage="err-user-nik">
-            <div id="err-user-nik" class="error-msg"><span aria-hidden="true">❌</span> NIK wajib terdiri dari 6 digit angka.</div>
+            <label class="field-label" for="userNikInput">NIK Karyawan (6 Karakter) <span class="req-star">*</span></label>
+            <input type="text" id="userNikInput" class="form-control" maxlength="6" minlength="6" pattern="[A-Za-z]*\d+" placeholder="Contoh: 121014 atau E12345" required aria-errormessage="err-user-nik" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase();">
+            <div id="err-user-nik" class="error-msg"><span aria-hidden="true">❌</span> NIK wajib terdiri dari 6 karakter (angka, atau huruf di depan contoh: E12345).</div>
           </div>
 
           <div class="field-group">

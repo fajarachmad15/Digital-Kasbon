@@ -227,8 +227,8 @@ function apiSaveUser(payload) {
 
   const validRoles = ['Manager', 'Senior Cashier', 'Requester', 'Admin'];
 
-  if (!nik || !/^\d{6}$/.test(nik)) {
-    throw new Error('NIK wajib berupa 6 digit angka (contoh: 121014).');
+  if (!nik || !AuthService.isValidNik(nik)) {
+    throw new Error('NIK wajib berupa 6 karakter (angka, atau huruf di depan contoh: E12345).');
   }
   if (!namaLengkap || /\d/.test(namaLengkap)) {
     throw new Error('Nama Lengkap wajib diisi dan tidak boleh mengandung angka.');
