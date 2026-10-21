@@ -23,7 +23,6 @@
     <section id="formSection" class="corp-card">
       <div class="corp-card-header">
         <h2 class="corp-card-title">📝 Formulir Pengajuan Kasbon Baru</h2>
-        <span class="badge badge-info">Database: Supabase Cloud</span>
       </div>
 
       <div id="formAlert" class="alert alert-error" style="display:none;"></div>
@@ -141,9 +140,8 @@
         </div>
 
         <div class="field-group">
-          <label class="field-label" for="fileLampiran">📸 Bukti Lampiran Pendukung (Opsional - Maks 5MB, Foto/PDF)</label>
+          <label class="field-label" for="fileLampiran">📸 Bukti Lampiran Pendukung (Opsional)</label>
           <input type="file" id="fileLampiran" class="form-control" accept="image/*,application/pdf">
-          <small style="color:var(--text-muted);">File gambar otomatis dikompresi secara cerdas dan disimpan ke Google Drive (Folder: <code>Digital Kasbon Bukti</code>).</small>
         </div>
 
         <!-- 5. Penugasan Petugas Store -->
@@ -176,8 +174,8 @@
     <!-- RINGKASAN PENGAJUAN BERHASIL -->
     <section id="summarySection" class="corp-card" style="display:none;">
       <div class="alert alert-success">
-        <strong>✅ PENGAJUAN KASBON BERHASIL DISIMPAN KE SUPABASE!</strong><br>
-        Status pengajuan kini tercatat di Dashboard Monitoring dengan status <em>Waiting Manager Approval</em>.
+        <strong>✅ PENGAJUAN KASBON BERHASIL DIKIRIM!</strong><br>
+        Status pengajuan kini dapat dipantau di Dashboard Monitoring (Menunggu Persetujuan Manager).
       </div>
       <h3 style="margin-top:0;">Ringkasan Pengajuan</h3>
       <div class="info-grid" id="summaryGrid" style="background:#f8fafc; padding:1.15rem; border-radius:8px; margin-bottom:1.25rem;"></div>

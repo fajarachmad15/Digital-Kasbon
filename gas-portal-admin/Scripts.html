@@ -182,7 +182,7 @@
       google.script.run
         .withSuccessHandler(function (res) {
           applyMasterResponse(res);
-          showNotice('Data Master Store & User berhasil diperbarui dari Supabase.');
+          showNotice('Data Master Store & User berhasil diperbarui.');
         })
         .withFailureHandler(function (err) {
           showError('Gagal memuat ulang data: ' + (err.message || err));

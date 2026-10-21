@@ -174,18 +174,15 @@
           const rawFile = inp.files[0];
           const origKB = (rawFile.size / 1024).toFixed(0);
           badge.style.display = 'inline-block';
-          badge.textContent = '⏳ Mengompresi ukuran foto (' + origKB + ' KB)...';
+          badge.textContent = '⏳ Memproses file...';
 
           prepareFilePayload(inp).then(function (res) {
             if (!res) return;
             const compKB = Math.max(1, Math.round(res.compressedBytes / 1024));
-            const savedPct = res.originalBytes > res.compressedBytes
-              ? Math.round((1 - (res.compressedBytes / res.originalBytes)) * 100)
-              : 0;
             if (res.mimeType === 'application/pdf') {
-              badge.textContent = '✅ File PDF siap diunggah ke Google Drive (' + compKB + ' KB)';
+              badge.textContent = '✅ File PDF siap dilampirkan (' + compKB + ' KB)';
             } else {
-              badge.textContent = '✅ Terkompresi otomatis: ' + origKB + ' KB ➔ ' + compKB + ' KB' + (savedPct > 0 ? ' (Hemat ' + savedPct + '% kuota Drive)' : '') + ' — Siap diunggah ke Google Drive';
+              badge.textContent = '✅ Lampiran foto siap (' + compKB + ' KB)';
             }
           }).catch(function (err) {
             badge.style.color = '#d93025';
