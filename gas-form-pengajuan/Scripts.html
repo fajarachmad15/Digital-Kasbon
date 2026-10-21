@@ -14,9 +14,91 @@
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    function applyGoogleSession(email) {
+      if (!email || email.indexOf('@') === -1) return;
+      const cleanEmail = email.trim().toLowerCase();
+      try {
+        localStorage.setItem('kasbon_requester_google_email', cleanEmail);
+      } catch (e) {}
+
+      const hiddenEmail = document.getElementById('emailRequest');
+      if (hiddenEmail) hiddenEmail.value = cleanEmail;
+
+      const badge = document.getElementById('verifiedEmailDisplay');
+      if (badge) badge.textContent = cleanEmail;
+
+      const gate = document.getElementById('googleLoginGate');
+      if (gate) gate.style.display = 'none';
+
+      const banner = document.getElementById('googleAuthBanner');
+      if (banner) banner.style.display = 'flex';
+
+      const form = document.getElementById('kasbonRequestForm');
+      if (form) form.style.display = 'block';
+    }
+
+    function loginWithGoogle() {
+      showAlert('');
+      const input = document.getElementById('googleEmailInput');
+      const val = (input.value || '').trim().toLowerCase();
+      if (!val || val.indexOf('@') === -1 || val.indexOf('.') === -1) {
+        showAlert('Masukkan alamat email Google (Gmail atau Corporate) yang valid.');
+        if (input) input.focus();
+        return;
+      }
+      applyGoogleSession(val);
+    }
+
+    function switchGoogleAccount() {
+      try {
+        localStorage.removeItem('kasbon_requester_google_email');
+      } catch (e) {}
+
+      const hiddenEmail = document.getElementById('emailRequest');
+      if (hiddenEmail) hiddenEmail.value = '';
+
+      const banner = document.getElementById('googleAuthBanner');
+      if (banner) banner.style.display = 'none';
+
+      const form = document.getElementById('kasbonRequestForm');
+      if (form) form.style.display = 'none';
+
+      const gate = document.getElementById('googleLoginGate');
+      if (gate) gate.style.display = 'block';
+
+      const input = document.getElementById('googleEmailInput');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+    }
+
     function init() {
       const form = document.getElementById('kasbonRequestForm');
       KasbonClientUtils.initFormValidation(form);
+
+      // Check for existing Google session (LocalStorage)
+      let initialEmail = '';
+      try {
+        initialEmail = localStorage.getItem('kasbon_requester_google_email') || '';
+      } catch (e) {}
+
+      if (initialEmail) {
+        applyGoogleSession(initialEmail);
+      } else {
+        const gate = document.getElementById('googleLoginGate');
+        if (gate) gate.style.display = 'block';
+      }
+
+      const googleInp = document.getElementById('googleEmailInput');
+      if (googleInp) {
+        googleInp.addEventListener('keypress', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            loginWithGoogle();
+          }
+        });
+      }
 
       // Set minimum date to today
       const todayStr = new Date().toISOString().split('T')[0];
@@ -41,6 +123,10 @@
 
           if (portalUrls.dashboard) {
             document.getElementById('navDashboardBtn').href = portalUrls.dashboard;
+          }
+
+          if (res.activeEmail && res.activeEmail.indexOf('@') !== -1) {
+            applyGoogleSession(res.activeEmail);
           }
 
           const storeSel = document.getElementById('kodeStore');
@@ -180,6 +266,8 @@
 
     return {
       init: init,
+      loginWithGoogle: loginWithGoogle,
+      switchGoogleAccount: switchGoogleAccount,
       onStoreChange: onStoreChange,
       onNominalInput: onNominalInput,
       resetForm: resetForm

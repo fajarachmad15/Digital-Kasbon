@@ -68,7 +68,35 @@ function apiSubmitPengajuan(formPayload) {
     janjiFormatted = p[2] + '/' + p[1] + '/' + p[0];
   }
 
-  // Anti-Double Kasbon Guard: 1 Karyawan (NIK) = Maksimal 1 Kasbon Aktif
+  // Anti-Double Kasbon Guard 1 (PRIMARY): Kunci by Akun Google / Email Terverifikasi
+  const activeKasbonEmail = SupabaseClient.selectSingle(
+    'kasbon_requests',
+    'email_request=eq.' + encodeURIComponent(emailRequest) +
+    '&overall_status=not.in.(COMPLETED,REJECTED_BY_MGR,REJECTED_BY_CASHIER)' +
+    '&order=timestamp_req.desc'
+  );
+
+  if (activeKasbonEmail) {
+    const statusMap = {
+      'WAITING_MGR_APPROVAL': 'Menunggu Persetujuan Manager (Step 2)',
+      'WAITING_CASHIER_VERIF': 'Menunggu Pencairan Senior Cashier (Step 3)',
+      'WAITING_MONEY_RECEIPT': 'Menunggu Konfirmasi Terima Uang (Step 4)',
+      'WAITING_REALIZATION_INPUT': 'Menunggu Input Nota Realisasi (Step 5)',
+      'WAITING_CASHIER_REA_VERIF': 'Menunggu Verifikasi Realisasi Cashier (Step 6)',
+      'WAITING_MGR_FINAL_CHECK': 'Menunggu Validasi Akhir Manager (Step 7)'
+    };
+    const friendlyStatus = statusMap[activeKasbonEmail.overall_status] || activeKasbonEmail.overall_status;
+    const nominalRp = 'Rp ' + Number(activeKasbonEmail.nominal || 0).toLocaleString('id-ID');
+    throw new Error(
+      'Pengajuan Ditolak! Akun Google Anda (' + emailRequest + ') masih memiliki transaksi kasbon aktif yang belum diselesaikan:\n' +
+      '• No. Kasbon: ' + activeKasbonEmail.no_pengajuan + '\n' +
+      '• Nominal: ' + nominalRp + '\n' +
+      '• Status Terkini: ' + friendlyStatus + '\n' +
+      'Sesuai ketentuan, Anda wajib menyelesaikan laporan realisasi kasbon sebelumnya terlebih dahulu.'
+    );
+  }
+
+  // Anti-Double Kasbon Guard 2 (SECONDARY): Kunci by NIP / NIK Karyawan
   const activeKasbon = SupabaseClient.selectSingle(
     'kasbon_requests',
     'nip_req=eq.' + encodeURIComponent(nipPemohon) +

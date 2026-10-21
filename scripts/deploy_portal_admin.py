@@ -17,7 +17,38 @@ def get_token():
     rc_path = r"C:\Users\Admin\.clasprc.json"
     with open(rc_path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    return data["tokens"]["default"]["access_token"]
+    token_obj = data["tokens"]["default"]
+
+    refresh_token = token_obj.get("refresh_token")
+    client_id = token_obj.get("client_id")
+    client_secret = token_obj.get("client_secret")
+
+    if refresh_token and client_id and client_secret:
+        try:
+            r = requests.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "refresh_token": refresh_token,
+                    "grant_type": "refresh_token"
+                },
+                timeout=15
+            )
+            if r.status_code == 200:
+                new_tokens = r.json()
+                new_access_token = new_tokens["access_token"]
+                token_obj["access_token"] = new_access_token
+                data["tokens"]["default"] = token_obj
+                with open(rc_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+                return new_access_token
+            else:
+                print(f"Token refresh HTTP {r.status_code}: {r.text}")
+        except Exception as e:
+            print(f"Warning: Token refresh failed: {e}")
+
+    return token_obj["access_token"]
 
 def build_files_payload(folder_path):
     files_payload = []
