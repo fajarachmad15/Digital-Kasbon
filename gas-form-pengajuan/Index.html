@@ -27,8 +27,8 @@
 
       <div id="formAlert" class="alert alert-error" style="display:none;"></div>
 
-      <!-- GOOGLE SIGN-IN GATE (MUNCUL JIKA BELUM ADA SESI LOGIN DI BROWSER) -->
-      <div id="googleLoginGate" style="display:none; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:2rem 1.5rem; text-align:center; margin:1rem 0 2rem; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+      <!-- GOOGLE SIGN-IN GATE (MUNCUL JIKA BELUM ADA AKUN GOOGLE AKTIF) -->
+      <div id="googleLoginGate" style="display:none; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:2.5rem 1.5rem; text-align:center; margin:1rem 0 2rem; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
         <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:50%; background:#f8fafc; border:1px solid #e2e8f0; margin-bottom:1rem;">
           <svg width="28" height="28" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.665-5.17 3.665-9.12z"/>
@@ -37,17 +37,13 @@
             <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.24 6.58l4.04 3.13c.95-2.83 3.6-4.96 6.72-4.96z"/>
           </svg>
         </div>
-        <h3 style="margin:0 0 0.5rem 0; font-size:1.2rem; color:var(--text-main);">Masuk dengan Akun Google</h3>
-        <p style="margin:0 auto 1.25rem; font-size:0.875rem; color:var(--text-muted); max-width:420px;">
-          Untuk mengajukan kasbon, silakan masuk sekali dengan akun Google Anda (Corporate atau Gmail). Sesi akan tersimpan otomatis di perangkat ini.
+        <h3 style="margin:0 0 0.5rem 0; font-size:1.25rem; color:var(--text-main);">Masuk dengan Akun Google</h3>
+        <p style="margin:0 auto 1.5rem; font-size:0.9rem; color:var(--text-muted); max-width:440px;">
+          Silakan masuk ke halaman login resmi Google (Corporate atau Gmail) untuk melanjutkan pengajuan kasbon.
         </p>
-        <div style="max-width:360px; margin:0 auto; text-align:left;">
-          <label class="field-label" for="googleEmailInput">Alamat Akun Google / Gmail <span class="req-star">*</span></label>
-          <input type="email" id="googleEmailInput" class="form-control" placeholder="nama@perusahaan.com atau nama@gmail.com" style="margin-bottom:0.75rem;" required>
-          <button type="button" id="btnGoogleLogin" class="btn btn-primary btn-block" style="display:flex; align-items:center; justify-content:center; gap:0.5rem;" onclick="PengajuanApp.loginWithGoogle()">
-            <span>🔐</span> Lanjutkan dengan Akun Google
-          </button>
-        </div>
+        <a id="btnGoogleRealLogin" href="https://accounts.google.com/AccountChooser" target="_top" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:0.6rem; padding:0.65rem 1.5rem; font-size:0.95rem;">
+          <span>🔐</span> Masuk ke Halaman Login Google ↗
+        </a>
       </div>
 
       <!-- GOOGLE ACCOUNT STATUS BANNER (MUNCUL SETELAH LOGIN) -->

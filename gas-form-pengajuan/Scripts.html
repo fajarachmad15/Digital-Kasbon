@@ -37,67 +37,34 @@
       if (form) form.style.display = 'block';
     }
 
-    function loginWithGoogle() {
-      showAlert('');
-      const input = document.getElementById('googleEmailInput');
-      const val = (input.value || '').trim().toLowerCase();
-      if (!val || val.indexOf('@') === -1 || val.indexOf('.') === -1) {
-        showAlert('Masukkan alamat email Google (Gmail atau Corporate) yang valid.');
-        if (input) input.focus();
-        return;
-      }
-      applyGoogleSession(val);
-    }
-
     function switchGoogleAccount() {
       try {
         localStorage.removeItem('kasbon_requester_google_email');
       } catch (e) {}
-
-      const hiddenEmail = document.getElementById('emailRequest');
-      if (hiddenEmail) hiddenEmail.value = '';
-
-      const banner = document.getElementById('googleAuthBanner');
-      if (banner) banner.style.display = 'none';
-
-      const form = document.getElementById('kasbonRequestForm');
-      if (form) form.style.display = 'none';
-
-      const gate = document.getElementById('googleLoginGate');
-      if (gate) gate.style.display = 'block';
-
-      const input = document.getElementById('googleEmailInput');
-      if (input) {
-        input.value = '';
-        input.focus();
-      }
+      window.top.location.href = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(window.location.href);
     }
 
     function init() {
       const form = document.getElementById('kasbonRequestForm');
       KasbonClientUtils.initFormValidation(form);
 
-      // Check for existing Google session (LocalStorage)
-      let initialEmail = '';
-      try {
-        initialEmail = localStorage.getItem('kasbon_requester_google_email') || '';
-      } catch (e) {}
+      // Check for existing Google session (Server Active Email or LocalStorage)
+      let initialEmail = '<?= activeEmail ?>' || '';
+      if (!initialEmail || initialEmail.indexOf('@') === -1) {
+        try {
+          initialEmail = localStorage.getItem('kasbon_requester_google_email') || '';
+        } catch (e) {}
+      }
 
-      if (initialEmail) {
+      if (initialEmail && initialEmail.indexOf('@') !== -1) {
         applyGoogleSession(initialEmail);
       } else {
         const gate = document.getElementById('googleLoginGate');
         if (gate) gate.style.display = 'block';
-      }
-
-      const googleInp = document.getElementById('googleEmailInput');
-      if (googleInp) {
-        googleInp.addEventListener('keypress', function (e) {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            loginWithGoogle();
-          }
-        });
+        const realLoginBtn = document.getElementById('btnGoogleRealLogin');
+        if (realLoginBtn) {
+          realLoginBtn.href = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(window.location.href);
+        }
       }
 
       // Set minimum date to today
@@ -266,7 +233,6 @@
 
     return {
       init: init,
-      loginWithGoogle: loginWithGoogle,
       switchGoogleAccount: switchGoogleAccount,
       onStoreChange: onStoreChange,
       onNominalInput: onNominalInput,
