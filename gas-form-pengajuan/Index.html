@@ -27,50 +27,8 @@
 
       <div id="formAlert" class="alert alert-error" style="display:none;"></div>
 
-      <!-- GOOGLE SIGN-IN GATE (MUNCUL JIKA BELUM ADA AKUN GOOGLE AKTIF) -->
-      <div id="googleLoginGate" style="display:none; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:2.5rem 1.5rem; text-align:center; margin:1rem 0 2rem; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
-        <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:50%; background:#f8fafc; border:1px solid #e2e8f0; margin-bottom:1rem;">
-          <svg width="28" height="28" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.665-5.17 3.665-9.12z"/>
-            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.13C3.26 21.36 7.33 24 12 24z"/>
-            <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.58H1.24C.45 8.15 0 9.97 0 12s.45 3.85 1.24 5.42l4.04-3.13z"/>
-            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.24 6.58l4.04 3.13c.95-2.83 3.6-4.96 6.72-4.96z"/>
-          </svg>
-        </div>
-        <h3 style="margin:0 0 0.5rem 0; font-size:1.25rem; color:var(--text-main);">Masuk dengan Akun Google</h3>
-        <p style="margin:0 auto 1.5rem; font-size:0.9rem; color:var(--text-muted); max-width:440px;">
-          Silakan masuk ke halaman login resmi Google (Corporate atau Gmail) untuk melanjutkan pengajuan kasbon.
-        </p>
-        <a id="btnGoogleRealLogin" href="https://accounts.google.com/AccountChooser" target="_top" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:0.6rem; padding:0.65rem 1.5rem; font-size:0.95rem;">
-          <span>🔐</span> Masuk ke Halaman Login Google ↗
-        </a>
-      </div>
-
-      <!-- GOOGLE ACCOUNT STATUS BANNER (MUNCUL SETELAH LOGIN) -->
-      <div id="googleAuthBanner" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:0.85rem 1.15rem; margin-bottom:1.5rem; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
-        <div style="display:flex; align-items:center; gap:0.75rem;">
-          <div style="background:#ffffff; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
-            <svg width="20" height="20" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.665-5.17 3.665-9.12z"/>
-              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.13C3.26 21.36 7.33 24 12 24z"/>
-              <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.58H1.24C.45 8.15 0 9.97 0 12s.45 3.85 1.24 5.42l4.04-3.13z"/>
-              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.24 6.58l4.04 3.13c.95-2.83 3.6-4.96 6.72-4.96z"/>
-            </svg>
-          </div>
-          <div>
-            <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; color:#15803d; font-weight:700;">🟢 Akun Pemohon Terverifikasi</div>
-            <div id="verifiedEmailDisplay" style="font-size:0.95rem; font-weight:700; color:#14532d;">-</div>
-          </div>
-        </div>
-        <button type="button" class="btn btn-outline" style="padding:0.35rem 0.75rem; font-size:0.775rem; border-color:#86efac; color:#166534;" onclick="PengajuanApp.switchGoogleAccount()">
-          🔄 Ganti Akun Google
-        </button>
-      </div>
-
-      <form id="kasbonRequestForm" novalidate style="display:none;">
-        <input type="hidden" id="emailRequest" value="">
-
-        <!-- 1. Identifikasi Lokasi Store & Departemen -->
+      <form id="kasbonRequestForm" novalidate>
+        <!-- 1. Identifikasi Lokasi Store & Email -->
         <div class="grid-2">
           <div class="field-group">
             <label class="field-label" for="kodeStore">Unit Bisnis / Kode Store <span class="req-star">*</span></label>
@@ -81,16 +39,9 @@
           </div>
 
           <div class="field-group">
-            <label class="field-label" for="departemen">Departemen <span class="req-star">*</span></label>
-            <select id="departemen" class="form-control" required aria-errormessage="err-dept">
-              <option value="">-- Pilih Departemen --</option>
-              <option value="Operational">Operational</option>
-              <option value="Sales">Sales</option>
-              <option value="Inventory">Inventory</option>
-              <option value="HR">HR</option>
-              <option value="Other">Other</option>
-            </select>
-            <div id="err-dept" class="error-msg"><span aria-hidden="true">❌</span> Pilih departemen pemohon.</div>
+            <label class="field-label" for="emailRequest">Email Pemohon (Google / Corporate) <span class="req-star">*</span></label>
+            <input type="email" id="emailRequest" class="form-control" value="<?= activeEmail ?>" placeholder="nama@gmail.com atau nama@perusahaan.com" required aria-errormessage="err-email">
+            <div id="err-email" class="error-msg"><span aria-hidden="true">❌</span> Masukkan alamat email Google / Corporate yang valid.</div>
           </div>
         </div>
 
@@ -109,23 +60,34 @@
           </div>
         </div>
 
-        <!-- 3. Janji Penyelesaian & Nominal -->
+        <!-- 3. Departemen & Janji Penyelesaian -->
         <div class="grid-2">
+          <div class="field-group">
+            <label class="field-label" for="departemen">Departemen <span class="req-star">*</span></label>
+            <select id="departemen" class="form-control" required aria-errormessage="err-dept">
+              <option value="">-- Pilih Departemen --</option>
+              <option value="Operational">Operational</option>
+              <option value="Sales">Sales</option>
+              <option value="Inventory">Inventory</option>
+              <option value="HR">HR</option>
+              <option value="Other">Other</option>
+            </select>
+            <div id="err-dept" class="error-msg"><span aria-hidden="true">❌</span> Pilih departemen pemohon.</div>
+          </div>
+
           <div class="field-group">
             <label class="field-label" for="janjiPenyelesaian">Janji Penyelesaian Realisasi <span class="req-star">*</span></label>
             <input type="date" id="janjiPenyelesaian" class="form-control" required aria-errormessage="err-janji">
             <div id="err-janji" class="error-msg"><span aria-hidden="true">❌</span> Pilih tanggal janji penyelesaian.</div>
           </div>
-
-          <div class="field-group">
-            <label class="field-label" for="nominal">Nominal Kasbon (Rp - Hanya Angka) <span class="req-star">*</span></label>
-            <input type="number" id="nominal" class="form-control" min="1" step="1" placeholder="Contoh: 500000" required aria-errormessage="err-nominal" oninput="PengajuanApp.onNominalInput()">
-            <div id="err-nominal" class="error-msg"><span aria-hidden="true">❌</span> Masukkan nominal angka lebih dari 0.</div>
-          </div>
         </div>
 
+        <!-- 4. Nominal & Terbilang -->
         <div class="field-group">
-          <div id="terbilangDisplay" class="terbilang-box">Nol Rupiah</div>
+          <label class="field-label" for="nominal">Nominal Kasbon (Rp - Hanya Angka) <span class="req-star">*</span></label>
+          <input type="number" id="nominal" class="form-control" min="1" step="1" placeholder="Contoh: 500000" required aria-errormessage="err-nominal" oninput="PengajuanApp.onNominalInput()">
+          <div id="err-nominal" class="error-msg"><span aria-hidden="true">❌</span> Masukkan nominal angka lebih dari 0.</div>
+          <div id="terbilangDisplay" class="terbilang-box" style="margin-top:0.5rem;">Nol Rupiah</div>
         </div>
 
         <!-- 4. Keperluan & Lampiran -->

@@ -14,57 +14,31 @@
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    function applyGoogleSession(email) {
-      if (!email || email.indexOf('@') === -1) return;
-      const cleanEmail = email.trim().toLowerCase();
-      try {
-        localStorage.setItem('kasbon_requester_google_email', cleanEmail);
-      } catch (e) {}
-
-      const hiddenEmail = document.getElementById('emailRequest');
-      if (hiddenEmail) hiddenEmail.value = cleanEmail;
-
-      const badge = document.getElementById('verifiedEmailDisplay');
-      if (badge) badge.textContent = cleanEmail;
-
-      const gate = document.getElementById('googleLoginGate');
-      if (gate) gate.style.display = 'none';
-
-      const banner = document.getElementById('googleAuthBanner');
-      if (banner) banner.style.display = 'flex';
-
-      const form = document.getElementById('kasbonRequestForm');
-      if (form) form.style.display = 'block';
-    }
-
-    function switchGoogleAccount() {
-      try {
-        localStorage.removeItem('kasbon_requester_google_email');
-      } catch (e) {}
-      window.top.location.href = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(window.location.href);
-    }
-
     function init() {
       const form = document.getElementById('kasbonRequestForm');
       KasbonClientUtils.initFormValidation(form);
 
-      // Check for existing Google session (Server Active Email or LocalStorage)
-      let initialEmail = '<?= activeEmail ?>' || '';
-      if (!initialEmail || initialEmail.indexOf('@') === -1) {
+      // Auto-populate saved email session from server activeEmail or localStorage
+      const emailInput = document.getElementById('emailRequest');
+      let savedEmail = '<?= activeEmail ?>' || '';
+      if (!savedEmail || savedEmail.indexOf('@') === -1) {
         try {
-          initialEmail = localStorage.getItem('kasbon_requester_google_email') || '';
+          savedEmail = localStorage.getItem('kasbon_requester_google_email') || '';
         } catch (e) {}
       }
+      if (savedEmail && emailInput && !emailInput.value) {
+        emailInput.value = savedEmail;
+      }
 
-      if (initialEmail && initialEmail.indexOf('@') !== -1) {
-        applyGoogleSession(initialEmail);
-      } else {
-        const gate = document.getElementById('googleLoginGate');
-        if (gate) gate.style.display = 'block';
-        const realLoginBtn = document.getElementById('btnGoogleRealLogin');
-        if (realLoginBtn) {
-          realLoginBtn.href = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(window.location.href);
-        }
+      if (emailInput) {
+        emailInput.addEventListener('change', function () {
+          const val = (emailInput.value || '').trim().toLowerCase();
+          if (val && val.indexOf('@') !== -1) {
+            try {
+              localStorage.setItem('kasbon_requester_google_email', val);
+            } catch (e) {}
+          }
+        });
       }
 
       // Set minimum date to today
@@ -93,7 +67,10 @@
           }
 
           if (res.activeEmail && res.activeEmail.indexOf('@') !== -1) {
-            applyGoogleSession(res.activeEmail);
+            const emailInp = document.getElementById('emailRequest');
+            if (emailInp && !emailInp.value) {
+              emailInp.value = res.activeEmail;
+            }
           }
 
           const storeSel = document.getElementById('kodeStore');
@@ -160,6 +137,11 @@
       try {
         const fileInput = document.getElementById('fileLampiran');
         const filePayload = await KasbonClientUtils.prepareFilePayload(fileInput, 1600);
+
+        const emailVal = (document.getElementById('emailRequest').value || '').trim().toLowerCase();
+        try {
+          localStorage.setItem('kasbon_requester_google_email', emailVal);
+        } catch (e) {}
 
         const payload = {
           kodeStore: document.getElementById('kodeStore').value,
@@ -233,7 +215,6 @@
 
     return {
       init: init,
-      switchGoogleAccount: switchGoogleAccount,
       onStoreChange: onStoreChange,
       onNominalInput: onNominalInput,
       resetForm: resetForm
