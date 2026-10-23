@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Proposal Permohonan Email Corporate Terpusat - Digital Kasbon</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 20mm 15mm 20mm 15mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body {
+      font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+      color: #1e293b;
+      line-height: 1.5;
+      background-color: #f8fafc;
+      margin: 0;
+      padding: 24px;
+    }
+    .page-container {
+      max-width: 860px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 40px 48px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      border-radius: 8px;
+    }
+    .no-print-bar {
+      max-width: 860px;
+      margin: 0 auto 20px auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #1e293b;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+    }
+    .btn-print {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-print:hover {
+      background: #1d4ed8;
+    }
+    .header-memo {
+      border-bottom: 3px double #0f172a;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+    .company-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin: 0 0 4px 0;
+    }
+    .doc-subtitle {
+      font-size: 13px;
+      color: #64748b;
+      margin: 0 0 16px 0;
+      font-weight: 500;
+    }
+    .meta-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      font-size: 13px;
+    }
+    .meta-table td {
+      padding: 6px 10px;
+      vertical-align: top;
+    }
+    .meta-table td.label {
+      width: 130px;
+      font-weight: 700;
+      color: #334155;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+    }
+    .meta-table td.val {
+      border: 1px solid #e2e8f0;
+      color: #0f172a;
+    }
+    h2 {
+      font-size: 16px;
+      color: #0f172a;
+      border-left: 4px solid #2563eb;
+      padding-left: 10px;
+      margin: 28px 0 12px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    p, li {
+      font-size: 13.5px;
+      color: #334155;
+      text-align: justify;
+    }
+    ul, ol {
+      padding-left: 20px;
+      margin: 8px 0;
+    }
+    li {
+      margin-bottom: 6px;
+    }
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 18px 0;
+      font-size: 12px;
+    }
+    .comparison-table th {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 12px;
+      font-weight: 600;
+      text-align: left;
+      border: 1px solid #0f172a;
+    }
+    .comparison-table td {
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      vertical-align: top;
+      line-height: 1.4;
+    }
+    .comparison-table tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+    .badge-bad {
+      display: inline-block;
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+    .badge-good {
+      display: inline-block;
+      background: #dcfce7;
+      color: #166534;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+    .box-quote {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+    .box-role {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 14px 18px;
+      margin: 14px 0;
+      font-size: 13px;
+    }
+    .box-role ul {
+      margin: 6px 0 0 0;
+      padding-left: 18px;
+    }
+    .signature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 40px;
+      page-break-inside: avoid;
+    }
+    .sig-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 14px;
+      text-align: center;
+      background: #fafafa;
+    }
+    .sig-role {
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 60px;
+      text-transform: uppercase;
+    }
+    .sig-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+      border-top: 1px solid #0f172a;
+      padding-top: 6px;
+      display: inline-block;
+      width: 85%;
+    }
+    .sig-title {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+      .no-print-bar {
+        display: none !important;
+      }
+      .page-container {
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="no-print-bar">
+    <div><strong>📄 Format Cetak Dokumen Resmi</strong> (Klik tombol di samping untuk mencetak / download PDF)</div>
+    <button class="btn-print" onclick="window.print()">🖨️ Cetak / Simpan sebagai PDF</button>
+  </div>
+
+  <div class="page-container">
+    <div class="header-memo">
+      <div class="company-title">KAWAN LAMA GROUP</div>
+      <div class="doc-subtitle">INTERNAL MEMORANDUM &amp; JUSTIFIKASI TEKNIS SISTEM DIGITALISASI KASBON</div>
+      <table class="meta-table">
+        <tr>
+          <td class="label">Nomor Dokumen</td>
+          <td class="val"><strong>012/MEMO-IT-FIN/DKP/X/2026</strong></td>
+          <td class="label">Tanggal</td>
+          <td class="val">23 Oktober 2026</td>
+        </tr>
+        <tr>
+          <td class="label">Kepada</td>
+          <td class="val"><strong>Head of Corporate IT &amp; Infrastructure</strong><br><strong>General Manager Finance &amp; Accounting</strong></td>
+          <td class="label">Dari</td>
+          <td class="val">Tim Inisiatif Digitalisasi Kasbon (Petty Cash Modernization)</td>
+        </tr>
+        <tr>
+          <td class="label">Perihal</td>
+          <td class="val" colspan="3"><strong>Permohonan Pengadaan &amp; Aktivasi 1 Akun Email Corporate Terpusat untuk Sentralisasi Sistem Digital Kasbon (Enterprise Petty Cash)</strong></td>
+        </tr>
+        <tr>
+          <td class="label">Sifat &amp; Klasifikasi</td>
+          <td class="val" colspan="3"><span style="color:#b91c1c; font-weight:700;">PENTING &amp; SEGERA</span> (Efisiensi Operasional, Keamanan Data &amp; Tata Kelola Keuangan)</td>
+        </tr>
+      </table>
+    </div>
+
+    <h2>1. Latar Belakang Masalah (Sistem Lama 58 Langkah)</h2>
+    <p>
+      Berdasarkan dokumentasi teknis sistem lama (<em>Bon Sementara Spreadsheet &amp; Google Form</em>), proses pendaftaran dan operasional kas kecil di setiap toko/store memiliki beban teknis manual yang sangat berat dan berisiko tinggi terhadap keamanan data korporasi.
+    </p>
+    <p>
+      Untuk menambahkan <strong>1 store baru</strong> saja, teknisi/admin harus menjalankan <strong>58 tahapan manual (total 203 langkah teknis)</strong>, meliputi:
+    </p>
+    <ul>
+      <li>Membuat dan mengelola akun Gmail personal terpisah per store (contoh: <code>bon.sementara501@gmail.com</code>).</li>
+      <li>Menginstal add-on pihak ketiga (<em>Mail Merge</em>) dengan kuota trial gratis yang terbatas hanya 30 baris email/akun, sehingga sering macet di tengah jalan.</li>
+      <li>Duplikasi manual 5 Google Form (Pengajuan, Disetujui, Diberikan, Diterima, Realisasi) dan 1 Google Spreadsheet per store.</li>
+      <li>Transfer kepemilikan file bolak-balik antara akun alter dan akun store, serta menyetel proteksi rentang satu demi satu (20+ kali setel izin sheet).</li>
+      <li><em>Copy-paste</em> manual daftar email dan sintaks ekspresi reguler (Regex) NIP/NIK karyawan ke dalam form.</li>
+      <li>Membuka hak akses Google Drive ke publik (<em>"Siapa saja yang memiliki link dapat melihat"</em>).</li>
+    </ul>
+
+    <h2>2. Solusi Usulan: Sentralisasi 1 Akun Corporate</h2>
+    <p>
+      Seluruh sistem kasbon kini telah dimodernisasi menjadi <strong>Web App Suite Terpadu (Google Apps Script + Supabase Cloud)</strong>. Seluruh proses di atas dapat dihilangkan secara permanen hanya dengan menyediakan <strong>1 (satu) Akun Google Workspace Corporate resmi</strong> (misalnya: <code>kasbon.digital@kawanlamacorp.com</code>).
+    </p>
+    <div class="box-quote">
+      <strong>Hasil Sentralisasi:</strong> Penambahan toko baru kini <strong>TIDAK PERLU</strong> lagi membuat akun email baru, tidak perlu membuat form baru, dan tidak perlu menyalin sheet. Cukup 10 detik memasukkan Kode Store di Portal Admin, sistem langsung aktif otomatis!
+    </div>
+
+    <div class="page-break"></div>
+
+    <h2>3. Matriks Komparasi Mendalam: BEFORE vs AFTER</h2>
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th style="width: 18%;">Parameter</th>
+          <th style="width: 38%;">Sistem Lama (Email Terpisah per Store)</th>
+          <th style="width: 44%;">Sistem Baru (1 Email Corporate Terpusat)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Jumlah Akun Email</strong></td>
+          <td>
+            <span class="badge-bad">Rentan &amp; Tercecer</span><br>
+            Puluhan akun Gmail gratisan personal (<code>bon.sementaraXXX@gmail.com</code>) + akun alter. Rawan lupa password &amp; OTP.
+          </td>
+          <td>
+            <span class="badge-good">Terkendali &amp; Terpusat</span><br>
+            <strong>Tepat 1 Akun Resmi Google Workspace</strong> (misal: <code>kasbon.digital@kawanlamacorp.com</code>) di bawah kendali penuh IT HO.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Waktu Setup Store Baru</strong></td>
+          <td>
+            <span class="badge-bad">Sangat Lambat</span><br>
+            <strong>2 - 3 Jam per Store:</strong> Menjalankan 58 halaman SOP tutorial (203 langkah manual kloning file &amp; setting izin).
+          </td>
+          <td>
+            <span class="badge-good">Instan (Efisiensi 99.8%)</span><br>
+            <strong>10 Detik:</strong> Cukup daftarkan Kode &amp; Nama Store di Portal Admin. Form otomatis melayani toko baru seketika.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Add-On &amp; Biaya Pihak Ketiga</strong></td>
+          <td>
+            <span class="badge-bad">Ketergantungan Eksternal</span><br>
+            Wajib install add-on pihak ketiga (<em>Mail Merge</em>). Dibatasi kuota gratis 30 baris/akun; risiko biaya subscription berulang.
+          </td>
+          <td>
+            <span class="badge-good">Bebas Biaya (Rp 0,-)</span><br>
+            <strong>100% Native Google Apps Script:</strong> Menggunakan library internal tanpa add-on eksternal, bebas risiko limit trial.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Kapasitas Pengiriman Email</strong></td>
+          <td>
+            <span class="badge-bad">Sering Terhenti</span><br>
+            Dibatasi kuota Gmail personal (maks 100 email/hari). Sering gagal kirim saat volume kasbon akhir bulan memuncak.
+          </td>
+          <td>
+            <span class="badge-good">Reliabel &amp; Stabil</span><br>
+            <strong>1.500 - 2.000 email/hari</strong> (kuota resmi Google Workspace Enterprise). Notifikasi approval langsung sampai detik itu juga.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Penyimpanan Bukti (Drive)</strong></td>
+          <td>
+            <span class="badge-bad">Terfragmentasi</span><br>
+            Bukti nota tercecer di puluhan drive akun personal toko yang tidak terawasi oleh Head Office.
+          </td>
+          <td>
+            <span class="badge-good">Satu Pintu Korporat</span><br>
+            Tersimpan rapi di Google Drive akun corporate dengan folder otomatis per bulan (<code>Digital Kasbon Bukti/YYYY-MM/No_Kasbon</code>).
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Keamanan &amp; Kepatuhan Data</strong></td>
+          <td>
+            <span class="badge-bad">Risiko Kebocoran Tinggi</span><br>
+            Sheet dan folder diatur ke publik (<em>"Siapa saja yang memiliki link dapat melihat"</em>). Sangat berbahaya bagi data keuangan.
+          </td>
+          <td>
+            <span class="badge-good">Enterprise Grade Security</span><br>
+            Terkunci aman di dalam domain internal <code>@kawanlamacorp.com</code>, terenkripsi SSL, dan tersimpan di database aman Supabase.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Otorisasi Pemohon (SSO)</strong></td>
+          <td>
+            <span class="badge-bad">Bisa Dipalsukan</span><br>
+            Nama dan email diketik bebas oleh pemohon di form tanpa verifikasi identitas akun yang sesungguhnya.
+          </td>
+          <td>
+            <span class="badge-good">Terkunci Akun Resmi</span><br>
+            <strong>Auto-Detect Email Google SSO:</strong> Email terisi otomatis sesuai akun login dan <strong>dikunci permanen (readonly)</strong>.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Pencegahan Fraud (Kasbon Ganda)</strong></td>
+          <td>
+            <span class="badge-bad">Human Error Kasir</span><br>
+            Hanya mengandalkan ketelitian kasir mengecek baris sheet; kasbon ganda berulang kali lolos pencairan.
+          </td>
+          <td>
+            <span class="badge-good">Anti-Double Kasbon Guard</span><br>
+            Sistem otomatis memblokir pengajuan jika email atau NIP masih memiliki kasbon aktif yang belum diselesaikan.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Rekonsiliasi &amp; Audit Finance</strong></td>
+          <td>
+            <span class="badge-bad">Tutup Buku Lambat</span><br>
+            Finance HO harus meminta link puluhan spreadsheet toko yang formatnya sering rusak terhapus oleh user.
+          </td>
+          <td>
+            <span class="badge-good">Real-Time Consolidation</span><br>
+            <strong>1 Dashboard Monitoring Nasional:</strong> Rekapitulasi transaksi seluruh toko terpantau live dalam satu tampilan.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>4. Fungsi Khusus Akun Corporate yang Dimohonkan</h2>
+    <div class="box-role">
+      <strong>Akun: <code>kasbon.digital@kawanlamacorp.com</code> (Akun Sistem / Non-Personal)</strong>
+      <ul>
+        <li><strong>Host Backend Script:</strong> Menjalankan 6 modul aplikasi Google Apps Script terpusat.</li>
+        <li><strong>Automated Mail Dispatcher:</strong> Mengirim notifikasi status kasbon, link persetujuan Manager, dan konfirmasi pencairan Kasir.</li>
+        <li><strong>Central Drive Repository:</strong> Menampung folder arsip dokumen dan nota struk petty cash dari seluruh unit bisnis.</li>
+      </ul>
+    </div>
+
+    <h2>5. Rekomendasi &amp; Permohonan Persetujuan</h2>
+    <p>
+      Mengingat manfaat efisiensi waktu kerja sebesar <strong>99.8%</strong>, penghapusan potensi biaya add-on berbayar, serta peningkatan standar keamanan data keuangan perusahaan, kami memohon kesediaan Bapak/Ibu Manajemen IT &amp; Finance untuk mengesahkan dan menerbitkan 1 akun corporate tersebut.
+    </p>
+
+    <div class="signature-grid">
+      <div class="sig-card">
+        <div class="sig-role">Diajukan Oleh:</div>
+        <div class="sig-name">Achmad Fajar Setiawan</div>
+        <div class="sig-title">Project Leader Digital Kasbon</div>
+      </div>
+      <div class="sig-card">
+        <div class="sig-role">Disetujui Oleh (IT):</div>
+        <div class="sig-name">Head of Corporate IT</div>
+        <div class="sig-title">IT Infrastructure &amp; Security</div>
+      </div>
+      <div class="sig-card">
+        <div class="sig-role">Disetujui Oleh (Finance):</div>
+        <div class="sig-name">GM Finance &amp; Accounting</div>
+        <div class="sig-title">Finance &amp; Corporate Control</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
